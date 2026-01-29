@@ -1,0 +1,1859 @@
+/**
+ * ZAO Bank Public Styles
+ * Mobile-first responsive design
+ */
+/* ==========================================================================
+   CSS Variables / Design Tokens
+   ========================================================================== */
+:root {
+  /* Colors */
+  --zaobank-black: #000;
+  --zaobank-dark: #312e35;
+  --zaobank-darker: #2a2630;
+  --zaobank-light: #d5d0dd;
+  --zaobank-white: #fff;
+  --zaobank-red: #bd0200;
+  --zaobank-red-dark: #980200;
+  --zaobank-red-light: #FFCBCB;
+  --zaobank-pink-red: #ca255b;
+  --zaobank-hot-pink: #e91388;
+  --zaobank-pink: #ff4faf;
+  --zaobank-purple-pink: #e657ff;
+  --zaobank-orange-red: #eb2d2e;
+  --zaobank-light-orange: #ff9966;
+  --zaobank-yellow-orange: #ffa41f;
+  --zaobank-yellow: #ffe600;
+  --zaobank-light-yellow: #fde92b;
+  --zaobank-yellow-green: #e6ff00;
+  --zaobank-lighter-yellow: #f8f5d6;
+  --zaobank-light-mint-green: #ddffd9;
+  --zaobank-mint-green: #ddffd9;
+  --zaobank-green: #009e54;
+  --zaobank-teal: rgb(81,184,218);
+  --zaobank-teal-blue: #00639a;
+  --zaobank-light-sky-blue: #daf0f8;
+  --zaobank-sky-blue: #91e9ff;
+  --zaobank-light-blue: #24caff;
+  --zaobank-bright-blue: #00a8de;
+  --zaobank-blue: #2b51fd;
+  --zaobank-purple-blue: #333391;
+  --zaobank-purple: rgb(54, 49, 103);
+  --zaobank-lavender: #a375ff;
+  --zaobank-gold: #A3824D;
+  --zaobank-gold-light: #BDA881;
+  /* greys */
+  --zaobank-gray-50: #f8f9fa;
+  --zaobank-gray-100: #f1f3f5;
+  --zaobank-gray-200: #e9ecef;
+  --zaobank-gray-300: #dee2e6;
+  --zaobank-gray-400: #ced4da;
+  --zaobank-gray-500: #adb5bd;
+  --zaobank-gray-600: #868e96;
+  --zaobank-gray-700: #495057;
+  --zaobank-gray-800: #343a40;
+  --zaobank-gray-900: #212529;
+  /* lighten/darken */
+  --zaobank-lighten-10: rgba(255, 255, 255, 0.1);
+  --zaobank-lighten-20: rgba(255, 255, 255, 0.2);
+  --zaobank-lighten-30: rgba(255, 255, 255, 0.3);
+  --zaobank-lighten-40: rgba(255, 255, 255, 0.4);
+  --zaobank-lighten-50: rgba(255, 255, 255, 0.5);
+  --zaobank-lighten-60: rgba(255, 255, 255, 0.6);
+  --zaobank-lighten-70: rgba(255, 255, 255, 0.7);
+  --zaobank-lighten-80: rgba(255, 255, 255, 0.8);
+  --zaobank-lighten-90: rgba(255, 255, 255, 0.9);
+  --zaobank-darken-5: rgba(0, 0, 0, 0.05);
+  --zaobank-darken-10: rgba(0, 0, 0, 0.1);
+  --zaobank-darken-20: rgba(0, 0, 0, 0.2);
+  --zaobank-darken-30: rgba(0, 0, 0, 0.3);
+  --zaobank-darken-40: rgba(0, 0, 0, 0.4);
+  --zaobank-darken-50: rgba(0, 0, 0, 0.5);
+  --zaobank-darken-60: rgba(0, 0, 0, 0.6);
+  --zaobank-darken-70: rgba(0, 0, 0, 0.7);
+  --zaobank-darken-80: rgba(0, 0, 0, 0.8);
+  --zaobank-darken-90: rgba(0, 0, 0, 0.9);
+  --zaobank-primary: var(--zaobank-teal);
+  --zaobank-primary-hover: var(--zaobank-purple);
+  --zaobank-primary-light: var(--zaobank-light-sky-blue);
+  --zaobank-secondary: var(--zaobank-purple-pink);
+  --zaobank-secondary-hover: var(--zaobank-pink-red);
+  --zaobank-success: var(--zaobank-green);
+  --zaobank-success-light: var(--zaobank-yellow-green);
+  --zaobank-warning: var(--zaobank-yellow);
+  --zaobank-warning-light: var(--zaobank-light-orange);
+  --zaobank-danger: var(--zaobank-orange-red);
+  --zaobank-danger-light: var(--zaobank-red-light);
+  --zaobank-info: var(--zaobank-bright-blue);
+  --zaobank-info-light: var(--zaobank-light-sky-blue);
+  --zaobank-light-theme-background: var(--zaobank-white);
+  --zaobank-light-theme-text: var(--zaobank-dark);
+  --zaobank-light-theme-link: var(--zaobank-primary);
+  --zaobank-dark-theme-background: var(--zaobank-dark);
+  --zaobank-dark-theme-text: var(--zaobank-white);
+  /* Typography */
+  --zaobank-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --zaobank-font-size-xs: clamp(1.02rem, 0.07vi + 1rem, 1.13rem);
+  --zaobank-font-size-sm: clamp(1.28rem, 0.15vi + 1.22rem, 1.5rem);
+  --zaobank-font-size-base: clamp(1.6rem, 0.27vi + 1.49rem, 2rem);
+  --zaobank-font-size-lg: clamp(2rem, 0.44vi + 1.82rem, 2.67rem);
+  --zaobank-font-size-xl: clamp(2.5rem, 0.7vi + 2.22rem, 3.55rem);
+  --zaobank-font-size-2xl: clamp(3.13rem, 1.07vi + 2.7rem, 4.74rem);
+  --zaobank-font-size-3xl: clamp(3.91rem, 1.61vi + 3.26rem, 6.31rem);
+  /* Spacing */
+  --zaobank-space-1: 0.25rem;
+  --zaobank-space-2: 0.5rem;
+  --zaobank-space-3: 0.75rem;
+  --zaobank-space-4: 1rem;
+  --zaobank-space-5: 1.25rem;
+  --zaobank-space-6: 1.5rem;
+  --zaobank-space-8: 2rem;
+  --zaobank-space-10: 2.5rem;
+  --zaobank-space-12: 3rem;
+  /* Border radius */
+  --zaobank-radius-sm: 4px;
+  --zaobank-radius-md: 8px;
+  --zaobank-radius-lg: 12px;
+  --zaobank-radius-xl: 16px;
+  --zaobank-radius-full: 9999px;
+  /* Shadows */
+  --zaobank-shadow-sm: rgba(255, 255, 255, 0.91) 1px 1px 1px 0px inset,
+  rgba(0, 0, 0, 0.25) 0px 30px 50px -20px,
+  rgba(0, 0, 0, 0.43) 0px 10px 40px -20px;
+  --zaobank-shadow-md: rgba(0, 0, 0, 0.15) 0 0 15px,
+  rgba(0, 0, 0, 0.08) 0 -2px 6px,
+  rgba(0, 0, 0, 0.18) 0px 3px 8px,
+  rgba(0, 0, 0, 0.17) 0px 7px 15px,
+  rgba(0, 0, 0, 0.59) 0 1px 1px;
+  --zaobank-shadow-lg: rgba(0, 0, 0, 0.35) 0px 2px 30px -50px,
+  rgba(0, 0, 0, 0.39) 0px 4px 2px -7px,
+  rgba(0, 0, 0, 0.39) 0px 8px 4px -3px,
+  rgba(0, 0, 0, 0.19) 0px 16px 8px -6px,
+  rgba(0, 0, 0, 0.19) 0px 32px 16px -3px;
+  /* Bottom nav height */
+  --zaobank-bottom-nav-height: 64px;
+  /* Touch targets */
+  --zaobank-touch-target: 44px;
+}
+
+/* ==========================================================================
+   Base Styles / Reset
+   ========================================================================== */
+.zaobank-container *,
+.zaobank-container *::before,
+.zaobank-container *::after {
+  box-sizing: border-box;
+}
+
+.zaobank-container {
+  font-family: var(--zaobank-font-family);
+  font-size: var(--zaobank-font-size-base);
+  line-height: 1.5;
+  padding: var(--zaobank-space-4);
+  padding-bottom: calc(var(--zaobank-bottom-nav-height) + var(--zaobank-space-6));
+  max-width: 100%;
+}
+
+.zaobank-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ==========================================================================
+   Typography
+   ========================================================================== */
+.zaobank-page-header {
+  margin-bottom: var(--zaobank-space-6);
+}
+
+.zaobank-page-title {
+  font-size: var(--zaobank-font-size-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--zaobank-space-2);
+}
+
+.zaobank-page-subtitle {
+  font-size: var(--zaobank-font-size-base);
+  opacity: 0.75;
+  margin: 0;
+}
+
+.zaobank-greeting {
+  font-size: var(--zaobank-font-size-xl);
+  font-weight: 600;
+  margin: 0;
+}
+
+.zaobank-section-title {
+  font-size: var(--zaobank-font-size-lg);
+  font-weight: 600;
+  margin: 0 0 var(--zaobank-space-3);
+}
+
+.zaobank-prose {
+  line-height: 1.7;
+}
+
+.zaobank-prose p {
+  margin: 0 0 var(--zaobank-space-4);
+}
+
+.zaobank-prose p:last-child {
+  margin-bottom: 0;
+}
+
+/* ==========================================================================
+   Cards
+   ========================================================================== */
+.zaobank-card {
+  background-image: linear-gradient(105deg, transparent 30%, var(--zaobank-darken-10) 100%);
+  border: 1px solid var(--zaobank-darken-20);
+  border-radius: var(--zaobank-radius-sm);
+  margin-bottom: var(--zaobank-space-4);
+  box-shadow: var(--zaobank-shadow-sm);
+}
+.theme-dark .zaobank-card {
+  background-image: linear-gradient(105deg, transparent 30%, var(--zaobank-lighten-10) 100%);
+  border: 1px solid var(--zaobank-lighten-20);
+}
+
+.zaobank-card-header {
+  padding: var(--zaobank-space-4);
+  border-bottom: 1px solid var(--zaobank-darken-50);
+}
+
+.zaobank-card-title {
+  font-size: var(--zaobank-font-size-base);
+  font-weight: 600;
+  margin: 0;
+}
+
+.zaobank-card-body {
+  padding: var(--zaobank-space-4);
+}
+
+.zaobank-card-footer {
+  padding: var(--zaobank-space-4);
+  border-top: 1px solid var(--zaobank-darken-50);
+  background: var(--zaobank-gray-50);
+  border-radius: 0 0 var(--zaobank-radius-sm) var(--zaobank-radius-lg);
+}
+
+/* ==========================================================================
+   Buttons
+   ========================================================================== */
+.zaobank-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--zaobank-space-2);
+  min-height: var(--zaobank-touch-target);
+  padding: var(--zaobank-space-3) var(--zaobank-space-5);
+  font-family: inherit;
+  font-size: var(--zaobank-font-size-base);
+  font-weight: 500;
+  text-align: center;
+  text-decoration: none;
+  border: 2px solid transparent;
+  border-radius: var(--zaobank-radius-sm);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.zaobank-btn:focus {
+  outline: 2px solid var(--zaobank-primary);
+  outline-offset: 2px;
+}
+
+.zaobank-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zaobank-btn-primary {
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+}
+
+.zaobank-btn-primary:hover:not(:disabled) {
+  background: var(--zaobank-primary-hover);
+}
+
+.zaobank-btn-secondary {
+  background: var(--zaobank-gray-100);
+  color: var(--zaobank-gray-800);
+}
+
+.zaobank-btn-secondary:hover:not(:disabled) {
+  background: var(--zaobank-gray-200);
+}
+
+.zaobank-btn-success {
+  background: var(--zaobank-success);
+  color: var(--zaobank-white);
+}
+
+.zaobank-btn-success:hover:not(:disabled) {
+  background: #218838;
+}
+
+.zaobank-btn-outline {
+  background: transparent;
+  border-color: var(--zaobank-gray-300);
+  color: var(--zaobank-gray-700);
+}
+
+.zaobank-btn-outline:hover:not(:disabled) {
+  background: var(--zaobank-gray-100);
+  border-color: var(--zaobank-gray-400);
+}
+
+.zaobank-btn-ghost {
+  background: transparent;
+  color: var(--zaobank-gray-600);
+  padding: var(--zaobank-space-2);
+}
+
+.zaobank-btn-ghost:hover:not(:disabled) {
+  background: var(--zaobank-gray-100);
+  color: var(--zaobank-gray-800);
+}
+
+.zaobank-btn-block {
+  display: flex;
+  width: 100%;
+}
+
+.zaobank-btn-lg {
+  min-height: 52px;
+  padding: var(--zaobank-space-4) var(--zaobank-space-6);
+  font-size: var(--zaobank-font-size-lg);
+}
+
+.zaobank-btn-sm {
+  min-height: 36px;
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-btn-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+.zaobank-form {
+  width: 100%;
+}
+
+.zaobank-form-group {
+  margin-bottom: var(--zaobank-space-5);
+}
+
+.zaobank-label {
+  display: block;
+  font-size: var(--zaobank-font-size-sm);
+  font-weight: 600;
+  margin-bottom: var(--zaobank-space-2);
+}
+
+.zaobank-required::after {
+  content: " *";
+  color: var(--zaobank-danger);
+}
+
+.zaobank-input,
+.zaobank-textarea,
+.zaobank-select {
+  display: block;
+  width: 100%;
+  min-height: var(--zaobank-touch-target);
+  padding: var(--zaobank-space-3) var(--zaobank-space-4);
+  font-family: inherit;
+  font-size: var(--zaobank-font-size-base);
+  line-height: 1.5;
+  border-radius: var(--zaobank-radius-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.zaobank-input:focus,
+.zaobank-textarea:focus,
+.zaobank-select:focus {
+  outline: none;
+  border-color: var(--zaobank-primary);
+}
+
+.zaobank-input::placeholder,
+.zaobank-textarea::placeholder {
+  opacity: 0.96;
+}
+
+.zaobank-input-sm {
+  max-width: 200px;
+}
+
+.zaobank-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+.zaobank-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23495057' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--zaobank-space-3) center;
+  background-size: 18px;
+  padding-right: var(--zaobank-space-10);
+}
+
+.zaobank-form-hint {
+  display: block;
+  font-size: var(--zaobank-font-size-sm);
+  margin-top: var(--zaobank-space-2);
+}
+
+.zaobank-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  min-height: var(--zaobank-touch-target);
+  padding: var(--zaobank-space-2) 0;
+  cursor: pointer;
+}
+
+.zaobank-checkbox-label input[type=checkbox] {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.zaobank-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-1);
+}
+
+/* ==========================================================================
+   Search Input
+   ========================================================================== */
+.zaobank-search-wrapper {
+  position: relative;
+  flex: 1;
+}
+
+.zaobank-search-input {
+  padding-left: var(--zaobank-space-12) !important;
+}
+
+.zaobank-search-icon {
+  position: absolute;
+  left: var(--zaobank-space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  pointer-events: none;
+}
+
+/* ==========================================================================
+   Filters
+   ========================================================================== */
+.zaobank-filters {
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-3);
+}
+
+.zaobank-filter-item {
+  width: 100%;
+}
+
+/* ==========================================================================
+   Badges
+   ========================================================================== */
+.zaobank-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--zaobank-space-1) var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-radius: var(--zaobank-radius-full);
+}
+
+.zaobank-badge-available {
+  background: var(--zaobank-success-light);
+  color: var(--zaobank-dark);
+}
+
+.zaobank-badge-in-progress {
+  background: var(--zaobank-danger);
+  color: var(--zaobank-white);
+}
+
+.zaobank-badge-completed {
+  background: var(--zaobank-success);
+  color: var(--zaobank-white);
+}
+
+.zaobank-badge-lg {
+  padding: var(--zaobank-space-2) var(--zaobank-space-4);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+/* ==========================================================================
+   Tags
+   ========================================================================== */
+.zaobank-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-2);
+}
+
+.zaobank-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-sm);
+  background: var(--zaobank-purple);
+  color: var(--zaobank-white);
+  border-radius: var(--zaobank-radius-full);
+}
+
+.zaobank-tag-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zaobank-space-1);
+}
+
+.zaobank-tag-count {
+  font-size: var(--zaobank-font-size-xs);
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+.zaobank-tabs {
+  display: flex;
+  border-bottom: 2px solid var(--zaobank-darken-40);
+  margin-bottom: var(--zaobank-space-4);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.zaobank-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  min-height: var(--zaobank-touch-target);
+  padding: var(--zaobank-space-3) var(--zaobank-space-4);
+  font-family: inherit;
+  font-size: var(--zaobank-font-size-base);
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.zaobank-tab:hover {
+  color: var(--zaobank-gray-900);
+}
+
+.zaobank-tab.active {
+  color: var(--zaobank-white);
+  border-bottom-color: var(--zaobank-primary);
+}
+
+.zaobank-tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 var(--zaobank-space-2);
+  font-size: var(--zaobank-font-size-xs);
+  font-weight: 600;
+  background: var(--zaobank-orange-red);
+  border-radius: var(--zaobank-radius-full);
+}
+
+.zaobank-tabs-compact .zaobank-tab {
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-tab-panel {
+  display: none;
+}
+
+.zaobank-tab-panel.active {
+  display: block;
+}
+
+/* ==========================================================================
+   Job Cards
+   ========================================================================== */
+.zaobank-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-4);
+}
+
+.zaobank-job-card {
+  position: relative;
+}
+
+.zaobank-job-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--zaobank-space-3);
+  margin-bottom: var(--zaobank-space-3);
+}
+
+.zaobank-job-title {
+  font-size: var(--zaobank-font-size-lg);
+  font-weight: 600;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.zaobank-job-title a {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-job-title a:hover {
+  color: var(--zaobank-primary-hover);
+}
+
+.zaobank-job-excerpt {
+  margin: 0 0 var(--zaobank-space-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.zaobank-job-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-4);
+  font-size: var(--zaobank-font-size-sm);
+  opacity: 0.8;
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-job-hours,
+.zaobank-job-location {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+}
+
+.zaobank-job-hours {
+  font-weight: 600;
+  color: var(--zaobank-primary);
+}
+
+.zaobank-meta-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.zaobank-job-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: var(--zaobank-space-3);
+  border-top: 1px solid var(--zaobank-darken-20);
+}
+.theme-dark .zaobank-job-footer {
+  border-top: 1px solid var(--zaobank-lighten-20);
+}
+
+.zaobank-job-poster {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-job-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-2);
+  margin-top: var(--zaobank-space-3);
+  padding-top: var(--zaobank-space-3);
+  border-top: 1px solid var(--zaobank-darken-30);
+}
+
+/* Job Detail */
+.zaobank-job-detail-header {
+  margin-bottom: var(--zaobank-space-5);
+}
+
+.zaobank-job-detail-header .zaobank-job-title {
+  font-size: var(--zaobank-font-size-2xl);
+  margin-bottom: var(--zaobank-space-3);
+}
+
+.zaobank-job-meta-detailed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-4);
+  padding: var(--zaobank-space-4);
+  border-radius: var(--zaobank-radius-sm);
+  margin-bottom: var(--zaobank-space-5);
+}
+
+.zaobank-meta-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--zaobank-space-3);
+}
+
+.zaobank-meta-item .zaobank-meta-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--zaobank-primary);
+  margin-top: 2px;
+}
+
+.zaobank-meta-label {
+  display: block;
+  font-size: var(--zaobank-font-size-xs);
+  opacity: 0.8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.zaobank-meta-value {
+  display: block;
+  font-weight: 500;
+  opacity: 0.8;
+}
+
+.zaobank-job-description,
+.zaobank-job-skills,
+.zaobank-job-poster-card,
+.zaobank-job-provider-card {
+  margin-bottom: var(--zaobank-space-5);
+}
+
+.zaobank-job-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-3);
+}
+
+/* ==========================================================================
+   User Cards / Profiles
+   ========================================================================== */
+.zaobank-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--zaobank-radius-full);
+  object-fit: cover;
+}
+
+.zaobank-avatar-small {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--zaobank-radius-full);
+  object-fit: cover;
+}
+
+.zaobank-avatar-tiny {
+  width: 24px;
+  height: 24px;
+  border-radius: var(--zaobank-radius-full);
+  object-fit: cover;
+}
+
+.zaobank-avatar-large {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--zaobank-radius-full);
+  object-fit: cover;
+}
+
+.zaobank-user-card-link {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-3);
+  background: var(--zaobank-gray-50);
+  border-radius: var(--zaobank-radius-md);
+  text-decoration: none;
+  transition: background 0.2s;
+}
+
+.zaobank-user-card-link:hover {
+  background: var(--zaobank-gray-100);
+}
+
+.zaobank-user-name {
+  display: block;
+  font-weight: 600;
+}
+
+.zaobank-user-since {
+  display: block;
+  font-size: var(--zaobank-font-size-sm);
+}
+
+/* Profile Page */
+.zaobank-profile-header-section {
+  text-align: center;
+  margin-bottom: var(--zaobank-space-6);
+}
+
+.zaobank-profile-avatar-wrapper {
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-profile-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: var(--zaobank-radius-full);
+  object-fit: cover;
+  border: 4px solid var(--zaobank-white);
+  box-shadow: var(--zaobank-shadow-md);
+}
+
+.zaobank-profile-name {
+  font-size: var(--zaobank-font-size-2xl);
+  font-weight: 700;
+  margin: 0 0 var(--zaobank-space-2);
+}
+
+.zaobank-profile-since {
+  font-size: var(--zaobank-font-size-sm);
+  opacity: 0.8;
+  margin: 0;
+}
+
+.zaobank-profile-region {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  margin-top: var(--zaobank-space-3);
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+  border-radius: var(--zaobank-radius-full);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-profile-region .zaobank-meta-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.zaobank-profile-section {
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-profile-bio,
+.zaobank-profile-skills,
+.zaobank-profile-availability {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.zaobank-profile-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-3);
+  margin-top: var(--zaobank-space-6);
+}
+
+/* Avatar Section in Edit Form */
+.zaobank-avatar-section {
+  text-align: center;
+}
+
+.zaobank-avatar-preview {
+  margin-bottom: var(--zaobank-space-2);
+}
+
+/* ==========================================================================
+   Balance
+   ========================================================================== */
+.zaobank-balance-card {
+  background: linear-gradient(135deg, var(--zaobank-primary) 0%, var(--zaobank-primary-hover) 100%);
+  color: var(--zaobank-white);
+  border: none;
+}
+.theme-dark .zaobank-balance-card {
+  background-image: linear-gradient(135deg, var(--zaobank-primary) 0%, var(--zaobank-primary-hover) 100%);
+}
+
+.zaobank-balance-card .zaobank-card-header {
+  border-bottom-color: rgba(255, 255, 255, 0.2);
+}
+
+.zaobank-balance-card .zaobank-card-title {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.zaobank-balance-display {
+  text-align: center;
+}
+
+.zaobank-balance {
+  font-size: var(--zaobank-font-size-3xl);
+  font-weight: 700;
+}
+
+.zaobank-balance.positive {
+  color: var(--zaobank-success);
+}
+
+.zaobank-balance.negative {
+  color: var(--zaobank-danger);
+}
+
+.zaobank-balance-card .zaobank-balance {
+  color: var(--zaobank-white);
+}
+
+.zaobank-balance-detail {
+  display: flex;
+  justify-content: center;
+  gap: var(--zaobank-space-6);
+  margin-top: var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-sm);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* ==========================================================================
+   Stats Grid
+   ========================================================================== */
+.zaobank-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--zaobank-space-3);
+}
+
+.zaobank-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--zaobank-space-3);
+  text-decoration: none;
+  border: 2px solid transparent;
+  border-radius: var(--zaobank-radius-md);
+  transition: border 0.2s;
+}
+
+.zaobank-stat-item:hover {
+  border-color: var(--zaobank-primary);
+}
+
+.zaobank-stat-value {
+  font-size: var(--zaobank-font-size-2xl);
+  font-weight: 700;
+  color: var(--zaobank-primary);
+}
+
+.zaobank-stat-label {
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-600);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Quick Actions
+   ========================================================================== */
+.zaobank-quick-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-3);
+  margin-bottom: var(--zaobank-space-4);
+}
+
+/* ==========================================================================
+   Activity List
+   ========================================================================== */
+.zaobank-activity-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.zaobank-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-3) 0;
+  border-bottom: 1px solid var(--zaobank-darken-20);
+}
+
+.zaobank-activity-item:last-child {
+  border-bottom: none;
+}
+
+.zaobank-activity-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--zaobank-darken-30);
+  border-radius: var(--zaobank-radius-full);
+  flex-shrink: 0;
+}
+
+.zaobank-activity-icon svg {
+  width: 16px;
+  height: 16px;
+  color: var(--zaobank-gray-600);
+}
+
+.zaobank-activity-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.zaobank-activity-text {
+  margin: 0;
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-activity-time {
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-500);
+}
+
+/* ==========================================================================
+   Messages / Conversations
+   ========================================================================== */
+.zaobank-conversations-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.zaobank-conversation-item {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-4);
+  text-decoration: none;
+  border-bottom: 1px solid var(--zaobank-gray-100);
+  transition: background 0.2s;
+}
+
+.zaobank-conversation-item:hover {
+  background: var(--zaobank-gray-50);
+}
+
+.zaobank-conversation-item.unread {
+  background: var(--zaobank-primary-light);
+}
+
+.zaobank-conversation-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.zaobank-conversation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: var(--zaobank-space-1);
+}
+
+.zaobank-conversation-name {
+  font-weight: 600;
+  color: var(--zaobank-gray-900);
+}
+
+.zaobank-conversation-time {
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-500);
+}
+
+.zaobank-conversation-preview {
+  margin: 0;
+  font-size: var(--zaobank-font-size-sm);
+  color: var(--zaobank-gray-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.zaobank-conversation-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  font-size: var(--zaobank-font-size-xs);
+  font-weight: 600;
+  color: var(--zaobank-white);
+  background: var(--zaobank-primary);
+  border-radius: var(--zaobank-radius-full);
+}
+
+/* Conversation Page */
+.zaobank-conversation-page {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--zaobank-bottom-nav-height));
+  padding-bottom: 0;
+}
+
+.zaobank-conversation-header {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-3) 0;
+  border-bottom: 1px solid var(--zaobank-gray-200);
+  margin: 0 calc(-1 * var(--zaobank-space-4));
+  padding-left: var(--zaobank-space-4);
+  padding-right: var(--zaobank-space-4);
+  background: var(--zaobank-white);
+}
+
+.zaobank-back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--zaobank-touch-target);
+  height: var(--zaobank-touch-target);
+  color: var(--zaobank-gray-700);
+  border-radius: var(--zaobank-radius-full);
+  transition: background 0.2s;
+}
+
+.zaobank-back-btn:hover {
+  background: var(--zaobank-gray-100);
+}
+
+.zaobank-back-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+.zaobank-conversation-user {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  text-decoration: none;
+}
+
+.zaobank-conversation-user-name {
+  font-weight: 600;
+  color: var(--zaobank-gray-900);
+}
+
+.zaobank-messages-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--zaobank-space-4) 0;
+}
+
+.zaobank-messages-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-3);
+}
+
+.zaobank-message {
+  display: flex;
+  max-width: 80%;
+}
+
+.zaobank-message-own {
+  margin-left: auto;
+}
+
+.zaobank-message-other {
+  margin-right: auto;
+}
+
+.zaobank-message-bubble {
+  padding: var(--zaobank-space-3) var(--zaobank-space-4);
+  border-radius: var(--zaobank-radius-lg);
+}
+
+.zaobank-message-own .zaobank-message-bubble {
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+  border-bottom-right-radius: var(--zaobank-radius-sm);
+}
+
+.zaobank-message-other .zaobank-message-bubble {
+  background: var(--zaobank-gray-100);
+  color: var(--zaobank-gray-900);
+  border-bottom-left-radius: var(--zaobank-radius-sm);
+}
+
+.zaobank-message-text {
+  margin: 0;
+  word-wrap: break-word;
+}
+
+.zaobank-message-time {
+  display: block;
+  font-size: var(--zaobank-font-size-xs);
+  margin-top: var(--zaobank-space-1);
+  opacity: 0.7;
+}
+
+.zaobank-message-date-divider {
+  text-align: center;
+  padding: var(--zaobank-space-4) 0;
+}
+
+.zaobank-message-date-divider span {
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-500);
+  background: var(--zaobank-white);
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+}
+
+/* Message Composer */
+.zaobank-message-composer {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--zaobank-space-2);
+  padding: var(--zaobank-space-3);
+  background: var(--zaobank-white);
+  border-top: 1px solid var(--zaobank-gray-200);
+  margin: 0 calc(-1 * var(--zaobank-space-4));
+}
+
+.zaobank-composer-input-wrapper {
+  flex: 1;
+}
+
+.zaobank-composer-input {
+  width: 100%;
+  max-height: 120px;
+  padding: var(--zaobank-space-3);
+  border: 1px solid var(--zaobank-gray-300);
+  border-radius: var(--zaobank-radius-lg);
+  resize: none;
+  font-family: inherit;
+  font-size: var(--zaobank-font-size-base);
+}
+
+.zaobank-composer-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--zaobank-touch-target);
+  height: var(--zaobank-touch-target);
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+  border: none;
+  border-radius: var(--zaobank-radius-full);
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.zaobank-composer-send:hover {
+  background: var(--zaobank-primary-hover);
+}
+
+.zaobank-composer-send svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ==========================================================================
+   Exchanges
+   ========================================================================== */
+.zaobank-exchange-card {
+  position: relative;
+}
+
+.zaobank-exchange-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--zaobank-space-3);
+}
+
+.zaobank-exchange-type {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  font-size: var(--zaobank-font-size-sm);
+  font-weight: 600;
+}
+
+.zaobank-exchange-type.earned {
+  color: var(--zaobank-success);
+}
+
+.zaobank-exchange-type.spent {
+  color: var(--zaobank-danger);
+}
+
+.zaobank-exchange-type svg {
+  width: 16px;
+  height: 16px;
+}
+
+.zaobank-exchange-hours {
+  font-size: var(--zaobank-font-size-lg);
+  font-weight: 700;
+}
+
+.zaobank-exchange-hours.earned {
+  color: var(--zaobank-success);
+}
+
+.zaobank-exchange-hours.spent {
+  color: var(--zaobank-danger);
+}
+
+.zaobank-exchange-title {
+  font-size: var(--zaobank-font-size-base);
+  font-weight: 600;
+  margin: 0 0 var(--zaobank-space-3);
+}
+
+.zaobank-exchange-title a {
+  color: var(--zaobank-gray-900);
+  text-decoration: none;
+}
+
+.zaobank-exchange-title a:hover {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-exchange-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-exchange-user {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  color: var(--zaobank-gray-600);
+  text-decoration: none;
+}
+
+.zaobank-exchange-user:hover {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-exchange-date {
+  color: var(--zaobank-gray-500);
+}
+
+.zaobank-exchange-actions {
+  margin-top: var(--zaobank-space-3);
+  padding-top: var(--zaobank-space-3);
+  border-top: 1px solid var(--zaobank-gray-100);
+}
+
+/* ==========================================================================
+   Appreciations
+   ========================================================================== */
+.zaobank-appreciation-card {
+  position: relative;
+}
+
+.zaobank-appreciation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--zaobank-space-3);
+}
+
+.zaobank-appreciation-from {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  text-decoration: none;
+}
+
+.zaobank-appreciation-from-name {
+  font-weight: 600;
+  color: var(--zaobank-gray-900);
+}
+
+.zaobank-appreciation-date {
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-500);
+}
+
+.zaobank-appreciation-tag {
+  margin-bottom: var(--zaobank-space-3);
+}
+
+.zaobank-appreciation-message {
+  font-style: italic;
+  color: var(--zaobank-gray-700);
+  margin: 0 0 var(--zaobank-space-3);
+}
+
+.zaobank-appreciation-context {
+  font-size: var(--zaobank-font-size-sm);
+  color: var(--zaobank-gray-600);
+}
+
+.zaobank-appreciation-context a {
+  color: var(--zaobank-primary);
+  text-decoration: none;
+}
+
+.zaobank-appreciation-context a:hover {
+  text-decoration: underline;
+}
+
+.zaobank-appreciation-tags-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-3);
+  justify-content: center;
+}
+
+.zaobank-appreciations-preview {
+  min-height: 60px;
+}
+
+/* ==========================================================================
+   Links
+   ========================================================================== */
+.zaobank-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  color: var(--zaobank-gray-600);
+  text-decoration: none;
+  font-size: var(--zaobank-font-size-sm);
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-back-link:hover {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-back-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.zaobank-link-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--zaobank-space-2);
+  color: var(--zaobank-primary);
+  text-decoration: none;
+  font-size: var(--zaobank-font-size-sm);
+  font-weight: 500;
+  margin-top: var(--zaobank-space-3);
+}
+
+.zaobank-link-more:hover {
+  text-decoration: underline;
+}
+
+.zaobank-link-icon {
+  width: 16px;
+  height: 16px;
+}
+
+/* ==========================================================================
+   Loading States
+   ========================================================================== */
+.zaobank-loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--zaobank-space-8);
+  color: var(--zaobank-gray-600);
+}
+
+.zaobank-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--zaobank-gray-200);
+  border-top-color: var(--zaobank-primary);
+  border-radius: 50%;
+  animation: zaobank-spin 0.8s linear infinite;
+}
+
+@keyframes zaobank-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.zaobank-loading-placeholder {
+  color: var(--zaobank-gray-500);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+/* ==========================================================================
+   Empty States
+   ========================================================================== */
+.zaobank-empty-state {
+  text-align: center;
+  padding: var(--zaobank-space-8) var(--zaobank-space-4);
+}
+
+.zaobank-empty-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--zaobank-gray-400);
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-empty-state h3 {
+  font-size: var(--zaobank-font-size-lg);
+  font-weight: 600;
+  color: var(--zaobank-gray-800);
+  margin: 0 0 var(--zaobank-space-2);
+}
+
+.zaobank-empty-state p {
+  color: var(--zaobank-gray-600);
+  margin: 0 0 var(--zaobank-space-4);
+}
+
+/* ==========================================================================
+   Error States
+   ========================================================================== */
+.zaobank-error {
+  padding: var(--zaobank-space-4);
+  background: var(--zaobank-danger-light);
+  color: #721c24;
+  border-radius: var(--zaobank-radius-md);
+  text-align: center;
+}
+
+/* ==========================================================================
+   Login Required
+   ========================================================================== */
+.zaobank-login-required {
+  text-align: center;
+  padding: var(--zaobank-space-8) var(--zaobank-space-4);
+}
+
+.zaobank-login-icon {
+  color: var(--zaobank-gray-400);
+  margin-bottom: var(--zaobank-space-4);
+}
+
+.zaobank-login-required p {
+  color: var(--zaobank-gray-600);
+  margin: 0 0 var(--zaobank-space-4);
+}
+
+/* ==========================================================================
+   Toast Notifications
+   ========================================================================== */
+.zaobank-toast-container {
+  position: fixed;
+  bottom: calc(var(--zaobank-bottom-nav-height) + var(--zaobank-space-4));
+  left: var(--zaobank-space-4);
+  right: var(--zaobank-space-4);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: var(--zaobank-space-2);
+  pointer-events: none;
+}
+
+.zaobank-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-4);
+  background: var(--zaobank-gray-900);
+  color: var(--zaobank-white);
+  border-radius: var(--zaobank-radius-md);
+  box-shadow: var(--zaobank-shadow-lg);
+  pointer-events: auto;
+  animation: zaobank-toast-in 0.3s ease-out;
+}
+
+.zaobank-toast.success {
+  background: var(--zaobank-success);
+}
+
+.zaobank-toast.error {
+  background: var(--zaobank-danger);
+}
+
+.zaobank-toast-message {
+  flex: 1;
+  margin: 0;
+}
+
+.zaobank-toast-close {
+  background: none;
+  border: none;
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  padding: var(--zaobank-space-1);
+}
+
+.zaobank-toast-close:hover {
+  opacity: 1;
+}
+
+@keyframes zaobank-toast-in {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+/* ==========================================================================
+   Floating Action Button
+   ========================================================================== */
+.zaobank-fab {
+  position: fixed;
+  right: var(--zaobank-space-4);
+  bottom: calc(var(--zaobank-bottom-nav-height) + var(--zaobank-space-4));
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+  border-radius: var(--zaobank-radius-full);
+  box-shadow: var(--zaobank-shadow-lg);
+  text-decoration: none;
+  transition: transform 0.2s, background 0.2s;
+  z-index: 100;
+}
+
+.zaobank-fab:hover {
+  background: var(--zaobank-primary-hover);
+  transform: scale(1.05);
+}
+
+.zaobank-fab svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* ==========================================================================
+   Bottom Navigation
+   ========================================================================== */
+.zaobank-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--zaobank-bottom-nav-height);
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  background: var(--zaobank-white);
+  border-top: 1px solid var(--zaobank-gray-200);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  z-index: 1000;
+}
+
+.zaobank-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: var(--zaobank-space-2);
+  color: var(--zaobank-gray-600);
+  text-decoration: none;
+  transition: color 0.2s;
+  position: relative;
+}
+
+.zaobank-nav-item:hover,
+.zaobank-nav-item.active {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-nav-item-primary {
+  margin-top: -12px;
+}
+
+.zaobank-nav-item-primary .zaobank-nav-icon {
+  width: 48px;
+  height: 48px;
+  padding: 12px;
+  background: var(--zaobank-primary);
+  color: var(--zaobank-white);
+  border-radius: var(--zaobank-radius-full);
+  box-shadow: var(--zaobank-shadow-md);
+}
+
+.zaobank-nav-item-primary:hover .zaobank-nav-icon,
+.zaobank-nav-item-primary.active .zaobank-nav-icon {
+  background: var(--zaobank-primary-hover);
+}
+
+.zaobank-nav-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.zaobank-nav-label {
+  font-size: 10px;
+  font-weight: 500;
+  margin-top: var(--zaobank-space-1);
+}
+
+.zaobank-nav-item-primary .zaobank-nav-label {
+  color: var(--zaobank-primary);
+}
+
+.zaobank-nav-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 20px);
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--zaobank-white);
+  background: var(--zaobank-danger);
+  border-radius: var(--zaobank-radius-full);
+}
+
+/* ==========================================================================
+   Load More
+   ========================================================================== */
+.zaobank-load-more {
+  margin-top: var(--zaobank-space-4);
+}
+
+/* ==========================================================================
+   Responsive: Tablet (768px+)
+   ========================================================================== */
+@media (min-width: 768px) {
+  .zaobank-container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: var(--zaobank-space-6);
+    padding-bottom: calc(var(--zaobank-bottom-nav-height) + var(--zaobank-space-8));
+  }
+  .zaobank-filter-row {
+    flex-direction: row;
+  }
+  .zaobank-filter-item:first-child {
+    max-width: 200px;
+  }
+  .zaobank-jobs-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .zaobank-quick-actions {
+    flex-direction: row;
+  }
+  .zaobank-quick-actions .zaobank-btn {
+    flex: 1;
+  }
+  .zaobank-job-meta-detailed {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .zaobank-meta-item {
+    flex: 1;
+    min-width: 150px;
+  }
+  .zaobank-profile-actions {
+    flex-direction: row;
+  }
+  .zaobank-profile-actions .zaobank-btn {
+    flex: 1;
+  }
+  .zaobank-job-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .zaobank-job-actions .zaobank-btn-block {
+    flex: 1;
+  }
+  .zaobank-toast-container {
+    left: auto;
+    right: var(--zaobank-space-6);
+    max-width: 400px;
+  }
+}
+/* ==========================================================================
+   Responsive: Desktop (1024px+)
+   ========================================================================== */
+@media (min-width: 1024px) {
+  :root {
+    --zaobank-bottom-nav-height: 0px;
+  }
+  .zaobank-container {
+    max-width: 960px;
+    padding-bottom: var(--zaobank-space-8);
+  }
+  .zaobank-bottom-nav {
+    display: none;
+  }
+  .zaobank-fab {
+    bottom: var(--zaobank-space-6);
+  }
+  .zaobank-jobs-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .zaobank-conversation-page {
+    height: auto;
+    max-height: 80vh;
+  }
+  .zaobank-toast-container {
+    bottom: var(--zaobank-space-6);
+  }
+}
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+@media print {
+  .zaobank-bottom-nav,
+  .zaobank-fab,
+  .zaobank-toast-container {
+    display: none !important;
+  }
+  .zaobank-container {
+    padding-bottom: 0;
+  }
+}

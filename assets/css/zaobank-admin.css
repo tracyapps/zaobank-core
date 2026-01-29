@@ -1,0 +1,117 @@
+/**
+ * ZAO Bank Admin Styles
+ */
+/* Dashboard Stats */
+.zaobank-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  margin: 20px 0;
+}
+
+.zaobank-stat-card {
+  background: #fff;
+  padding: 20px;
+  border-left: 4px solid #2271b1;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.zaobank-stat-card h3 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  color: #666;
+  font-weight: 600;
+}
+
+.stat-number {
+  font-size: 32px;
+  font-weight: bold;
+  margin: 0;
+  color: #2271b1;
+}
+
+/* Sections */
+.zaobank-flags-section,
+.zaobank-recent-activity {
+  background: #fff;
+  padding: 20px;
+  margin: 20px 0;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
+}
+
+.zaobank-flags-section h2,
+.zaobank-recent-activity h2 {
+  margin-top: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+/* Tables */
+.zaobank-flags-section table,
+.zaobank-recent-activity table {
+  margin-top: 20px;
+}
+
+/* Buttons */
+.zaobank-review-flag,
+.zaobank-resolve-flag {
+  margin-right: 5px;
+}
+
+/* Job Meta Box */
+.zaobank-job-meta {
+  padding: 10px;
+}
+
+.zaobank-job-meta .field-group {
+  margin-bottom: 15px;
+}
+
+.zaobank-job-meta label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.zaobank-job-meta input[type=text],
+.zaobank-job-meta input[type=number],
+.zaobank-job-meta select,
+.zaobank-job-meta textarea {
+  width: 100%;
+}
+
+/* User Profile Fields */
+.zaobank-user-profile .field-group {
+  margin-bottom: 20px;
+}
+
+.zaobank-user-profile label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+/* Notices */
+.zaobank-notice {
+  padding: 12px;
+  margin: 15px 0;
+  border-left: 4px solid #2271b1;
+  background: #f0f6fc;
+}
+
+.zaobank-notice.warning {
+  border-left-color: #dba617;
+  background: #fcf9e8;
+}
+
+.zaobank-notice.error {
+  border-left-color: #d63638;
+  background: #fcf0f1;
+}
+
+/* Responsive */
+@media (max-width: 782px) {
+  .zaobank-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}
