@@ -139,10 +139,23 @@ class ZAOBank_Shortcodes {
 
 	/**
 	 * Render messages template.
+	 *
+	 * Routes to conversation view if user_id param is present,
+	 * or to job updates view if view=updates.
 	 */
 	public function render_messages($atts) {
 		if (!is_user_logged_in()) {
 			return $this->render_login_required(__('Please log in to view your messages.', 'zaobank'));
+		}
+
+		// If user_id is in the URL, render conversation view
+		if (isset($_GET['user_id']) && absint($_GET['user_id']) > 0) {
+			return $this->render_conversation(array('user_id' => absint($_GET['user_id'])));
+		}
+
+		// If view=updates, show job updates view
+		if (isset($_GET['view']) && $_GET['view'] === 'updates') {
+			return $this->load_template('messages', array('view' => 'updates'));
 		}
 
 		return $this->load_template('messages');

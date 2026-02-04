@@ -30,6 +30,8 @@
 			// Job actions
 			$(document).on('click', '.zaobank-claim-job', this.handleClaimJob.bind(this));
 			$(document).on('click', '.zaobank-complete-job', this.handleCompleteJob.bind(this));
+			$(document).on('click', '.zaobank-release-job', this.handleReleaseJob.bind(this));
+			$(document).on('click', '.zaobank-delete-job', this.handleDeleteJob.bind(this));
 
 			// Flag content
 			$(document).on('click', '.zaobank-flag-content', this.handleFlagContent.bind(this));
@@ -51,6 +53,13 @@
 
 			// Appreciation
 			$(document).on('click', '.zaobank-give-appreciation', this.handleGiveAppreciation.bind(this));
+
+			// Message actions
+			$(document).on('click', '.zaobank-mark-read', this.handleMarkConversationRead.bind(this));
+			$(document).on('click', '.zaobank-archive-conversation', this.handleArchiveConversation.bind(this));
+
+			// Private notes
+			$(document).on('click', '.zaobank-add-notes', this.handleAddNotes.bind(this));
 		},
 
 		initComponents: function() {
@@ -416,6 +425,7 @@
 				const canClaim = zaobank.isLoggedIn && !job.provider_id && job.requester_id !== zaobank.userId;
 				const canComplete = zaobank.isLoggedIn && job.provider_id && !job.completed_at && job.requester_id === zaobank.userId;
 				const canEdit = zaobank.isLoggedIn && job.requester_id === zaobank.userId && !job.provider_id;
+				const canRelease = zaobank.isLoggedIn && job.provider_id == zaobank.userId && !job.completed_at;
 				const canMessage = zaobank.isLoggedIn && job.requester_id !== zaobank.userId;
 
 				const html = ZAOBank.renderTemplate(template, {
@@ -438,6 +448,7 @@
 					can_claim: canClaim,
 					can_complete: canComplete,
 					can_edit: canEdit,
+					can_release: canRelease,
 					can_message: canMessage
 				});
 
@@ -477,15 +488,100 @@
 				return;
 			}
 
-			$button.prop('disabled', true).text('Processing...');
+			// Get job details for hours
+			this.apiCall('jobs/' + jobId, 'GET', {}, function(job) {
+				const currentHours = job.hours || 1;
+				const hoursInput = prompt('Adjust hours if needed (current: ' + currentHours + '):', currentHours);
 
-			this.apiCall('jobs/' + jobId + '/complete', 'POST', {}, function(response) {
-				ZAOBank.showToast('Job completed! Exchange recorded.', 'success');
+				if (hoursInput === null) return;
+
+				const hours = parseFloat(hoursInput) || currentHours;
+
+				$button.prop('disabled', true).text('Processing...');
+
+				ZAOBank.apiCall('jobs/' + jobId + '/complete', 'POST', { hours: hours }, function(response) {
+					ZAOBank.showToast('Job completed! Exchange recorded.', 'success');
+
+					// Appreciation prompt
+					const providerId = job.provider_id;
+					const tags = ['helpful', 'reliable', 'kind', 'skilled', 'punctual'];
+					const tag = prompt('Add appreciation tag (' + tags.join(', ') + ') or leave blank:');
+
+					if (tag && tag.trim()) {
+						const message = prompt('Add appreciation message (optional):') || '';
+
+						ZAOBank.apiCall('appreciations', 'POST', {
+							exchange_id: response.exchange ? response.exchange.id : null,
+							to_user_id: providerId,
+							tag_slug: tag.toLowerCase().trim(),
+							message: message,
+							is_public: true
+						}, function() {
+							ZAOBank.showToast('Appreciation sent!', 'success');
+						});
+					}
+
+					// Private notes prompt
+					const notes = prompt('Add private notes about this person (optional, only visible to you):');
+
+					if (notes && notes.trim()) {
+						ZAOBank.apiCall('me/notes', 'POST', {
+							subject_user_id: providerId,
+							tag_slug: 'job-completion',
+							note: notes
+						});
+					}
+
+					setTimeout(function() {
+						location.reload();
+					}, 1500);
+				}, function() {
+					$button.prop('disabled', false).text('Mark Complete');
+				});
+			});
+		},
+
+		handleReleaseJob: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const jobId = $button.data('job-id');
+
+			if (!confirm('Release this job? It will become available for others to claim.')) {
+				return;
+			}
+
+			const reason = prompt('Reason for releasing (optional):') || '';
+
+			$button.prop('disabled', true).text('Releasing...');
+
+			this.apiCall('jobs/' + jobId + '/release', 'POST', { reason: reason }, function(response) {
+				ZAOBank.showToast('Job released successfully.', 'success');
 				setTimeout(function() {
 					location.reload();
 				}, 1000);
 			}, function() {
-				$button.prop('disabled', false).text('Mark Complete');
+				$button.prop('disabled', false).text('Release This Job');
+			});
+		},
+
+		handleDeleteJob: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const jobId = $button.data('job-id');
+
+			if (!confirm('Are you sure you want to delete this job? This cannot be undone.')) {
+				return;
+			}
+
+			$button.prop('disabled', true).text('Deleting...');
+
+			this.apiCall('jobs/' + jobId, 'DELETE', {}, function(response) {
+				ZAOBank.showToast('Job deleted.', 'success');
+				setTimeout(function() {
+					window.history.back();
+				}, 1000);
+			}, function() {
+				$button.prop('disabled', false).text('Delete Job');
 			});
 		},
 
@@ -600,6 +696,9 @@
 					const status = ZAOBank.getJobStatus(job);
 					const canComplete = job.provider_id && !job.completed_at && job.requester_id === zaobank.userId;
 					const canEdit = job.requester_id === zaobank.userId && !job.provider_id;
+					const canRelease = job.provider_id == zaobank.userId && !job.completed_at;
+					const canAddNotes = job.completed_at && !canEdit;
+					const notesUserId = job.requester_id === zaobank.userId ? job.provider_id : job.requester_id;
 
 					return ZAOBank.renderTemplate(template, {
 						id: job.id,
@@ -611,7 +710,10 @@
 						provider_name: job.provider_name ? ZAOBank.escapeHtml(job.provider_name) : '',
 						provider_avatar: job.provider_avatar || ZAOBank.getDefaultAvatar(),
 						can_complete: canComplete,
-						can_edit: canEdit
+						can_edit: canEdit,
+						can_release: canRelease,
+						can_add_notes: canAddNotes,
+						notes_user_id: notesUserId
 					});
 				}).join('');
 
@@ -831,7 +933,12 @@
 		// =========================================================================
 
 		initMessages: function($container) {
-			this.loadConversations();
+			const view = $container.data('view');
+			if (view === 'updates') {
+				this.loadJobUpdates();
+			} else {
+				this.loadConversations();
+			}
 		},
 
 		loadConversations: function() {
@@ -897,6 +1004,98 @@
 			return Object.values(convMap);
 		},
 
+		loadJobUpdates: function() {
+			const $list = $('.zaobank-conversations-list');
+			const $empty = $('.zaobank-empty-state');
+
+			this.apiCall('me/messages', 'GET', { message_type: 'job_update' }, function(response) {
+				$list.attr('data-loading', 'false');
+
+				const messages = response.messages || [];
+
+				if (messages.length === 0) {
+					$list.empty();
+					$empty.show();
+					return;
+				}
+
+				$empty.hide();
+
+				const template = $('#zaobank-job-update-template').html();
+				const html = messages.map(function(msg) {
+					const otherId = msg.from_user_id === zaobank.userId ? msg.to_user_id : msg.from_user_id;
+					const otherName = msg.from_user_id === zaobank.userId ? msg.to_user_name : msg.from_user_name;
+
+					return ZAOBank.renderTemplate(template, {
+						other_user_avatar: ZAOBank.getDefaultAvatar(),
+						other_user_name: ZAOBank.escapeHtml(otherName),
+						message: ZAOBank.escapeHtml(msg.message),
+						time: ZAOBank.formatRelativeTime(msg.created_at),
+						job_id: msg.job_id || '',
+						job_title: msg.job_title ? ZAOBank.escapeHtml(msg.job_title) : ''
+					});
+				}).join('');
+
+				$list.html(html);
+			}, function() {
+				$list.attr('data-loading', 'false');
+			});
+		},
+
+		handleMarkConversationRead: function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const $button = $(e.currentTarget);
+			const userId = $button.data('user-id');
+
+			this.apiCall('me/messages/read-all', 'POST', { with_user: userId }, function() {
+				$button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-item').removeClass('unread');
+				$button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-badge').remove();
+				$button.remove();
+				ZAOBank.showToast('Marked as read', 'success');
+			});
+		},
+
+		handleArchiveConversation: function(e) {
+			e.preventDefault();
+			e.stopPropagation();
+			const $button = $(e.currentTarget);
+			const userId = $button.data('user-id');
+
+			if (!confirm('Archive this conversation? It will be hidden from your list.')) {
+				return;
+			}
+
+			this.apiCall('me/messages/archive', 'POST', { other_user_id: userId }, function() {
+				$button.closest('.zaobank-conversation-item-wrapper').fadeOut(300, function() {
+					$(this).remove();
+				});
+				ZAOBank.showToast('Conversation archived', 'success');
+			});
+		},
+
+		handleAddNotes: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const userId = $button.data('user-id');
+
+			const tags = ['easy-to-work-with', 'clear-communicator', 'respectful', 'on-time', 'flexible-schedule', 'needs-clear-instructions'];
+			const tag = prompt('Choose a tag for your note:\n\n' + tags.join(', '));
+
+			if (!tag) return;
+
+			const note = prompt('Add your note (optional):') || '';
+
+			this.apiCall('me/notes', 'POST', {
+				subject_user_id: userId,
+				tag_slug: tag.toLowerCase().trim(),
+				note: note
+			}, function() {
+				ZAOBank.showToast('Note saved', 'success');
+				$button.prop('disabled', true).text('Note Added');
+			});
+		},
+
 		// =========================================================================
 		// Conversation
 		// =========================================================================
@@ -925,6 +1124,7 @@
 				const template = $('#zaobank-message-template').html();
 				const html = messages.map(function(msg) {
 					return ZAOBank.renderTemplate(template, {
+						id: msg.id,
 						message: ZAOBank.escapeHtml(msg.message),
 						time: ZAOBank.formatTime(msg.created_at),
 						is_own: msg.from_user_id === zaobank.userId

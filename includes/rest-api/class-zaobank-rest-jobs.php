@@ -79,6 +79,24 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 			)
 		));
 
+		// Release job
+		register_rest_route($this->namespace, '/jobs/(?P<id>[\d]+)/release', array(
+			'methods' => WP_REST_Server::CREATABLE,
+			'callback' => array($this, 'release_job'),
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'id' => array(
+					'validate_callback' => function($param) {
+						return is_numeric($param);
+					}
+				),
+				'reason' => array(
+					'type' => 'string',
+					'description' => __('Reason for releasing the job.', 'zaobank')
+				)
+			)
+		));
+
 		// Get my jobs
 		register_rest_route($this->namespace, '/jobs/mine', array(
 			'methods' => WP_REST_Server::READABLE,
@@ -265,8 +283,10 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 	 */
 	public function complete_job($request) {
 		$job_id = (int) $request['id'];
+		$hours = $request->get_param('hours');
+		$hours_override = ($hours !== null && $hours !== '') ? floatval($hours) : null;
 
-		$exchange_id = ZAOBank_Jobs::complete_job($job_id);
+		$exchange_id = ZAOBank_Jobs::complete_job($job_id, null, $hours_override);
 
 		if (is_wp_error($exchange_id)) {
 			return $this->error_response(
@@ -282,6 +302,94 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 			'message' => __('Job completed successfully', 'zaobank'),
 			'job' => $job,
 			'exchange' => $exchange
+		));
+	}
+
+	/**
+	 * Release job.
+	 */
+	public function release_job($request) {
+		$job_id = (int) $request['id'];
+		$reason = $request->get_param('reason') ?: '';
+
+		$result = ZAOBank_Jobs::release_job($job_id, $reason);
+
+		if (is_wp_error($result)) {
+			return $this->error_response(
+				$result->get_error_code(),
+				$result->get_error_message()
+			);
+		}
+
+		$job = ZAOBank_Jobs::format_job_data($job_id);
+
+		return $this->success_response(array(
+			'message' => __('Job released successfully', 'zaobank'),
+			'job' => $job
+		));
+	}
+
+	/**
+	 * Update job.
+	 */
+	public function update_job($request) {
+		$job_id = (int) $request['id'];
+		$data = ZAOBank_Security::sanitize_job_data($request->get_params());
+
+		// Update post title/content
+		$post_data = array('ID' => $job_id);
+		if (isset($data['title'])) {
+			$post_data['post_title'] = $data['title'];
+		}
+		if (isset($data['description'])) {
+			$post_data['post_content'] = $data['description'];
+		}
+
+		if (count($post_data) > 1) {
+			wp_update_post($post_data);
+		}
+
+		// Update meta fields
+		$meta_fields = array('hours', 'location', 'skills_required', 'preferred_date', 'flexible_timing');
+		foreach ($meta_fields as $field) {
+			if (isset($data[$field])) {
+				$value = $field === 'hours' ? floatval($data[$field]) : $data[$field];
+				update_post_meta($job_id, $field, $value);
+			}
+		}
+
+		// Update taxonomy terms
+		if (isset($data['regions']) && is_array($data['regions'])) {
+			wp_set_object_terms($job_id, $data['regions'], 'zaobank_region');
+		}
+		if (isset($data['job_types']) && is_array($data['job_types'])) {
+			wp_set_object_terms($job_id, array_map('intval', $data['job_types']), 'zaobank_job_type');
+		}
+
+		$job = ZAOBank_Jobs::format_job_data($job_id);
+
+		return $this->success_response(array(
+			'message' => __('Job updated successfully', 'zaobank'),
+			'job' => $job
+		));
+	}
+
+	/**
+	 * Delete/archive job.
+	 */
+	public function delete_job($request) {
+		$job_id = (int) $request['id'];
+
+		// Don't delete if claimed/completed - archive instead
+		$provider_id = get_post_meta($job_id, 'provider_user_id', true);
+		if ($provider_id) {
+			update_post_meta($job_id, 'visibility', 'archived');
+		} else {
+			wp_trash_post($job_id);
+		}
+
+		return $this->success_response(array(
+			'message' => __('Job deleted successfully', 'zaobank')
 		));
 	}
 

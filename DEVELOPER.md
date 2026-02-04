@@ -127,8 +127,8 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 | `[zaobank_my_jobs]` | `my-jobs.php` | User's posted and claimed jobs | Yes |
 | `[zaobank_profile]` | `profile.php` | User profile (own or other) | Partial |
 | `[zaobank_profile_edit]` | `profile-edit.php` | Profile edit form | Yes |
-| `[zaobank_messages]` | `messages.php` | Conversations list | Yes |
-| `[zaobank_conversation user_id="X"]` | `conversation.php` | Single conversation thread | Yes |
+| `[zaobank_messages]` | `messages.php` or `conversation.php` | Conversations list; delegates to conversation view on `?user_id=`, job updates view on `?view=updates` | Yes |
+| `[zaobank_conversation user_id="X"]` | `conversation.php` | Single conversation thread (standalone) | Yes |
 | `[zaobank_exchanges]` | `exchanges.php` | Exchange history | Yes |
 | `[zaobank_appreciations]` | `appreciations.php` | Appreciations received/given | Partial |
 
@@ -148,6 +148,9 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 
 #### `[zaobank_profile]`
 - `user_id` (int): User to display. Defaults to current user. Also accepts `?user_id=X`.
+
+#### `[zaobank_messages]`
+- **URL routing**: When `?user_id=X` is present, delegates to `[zaobank_conversation]` and renders the conversation view. When `?view=updates` is present, shows the job updates view instead of the conversations list. This allows one page to handle conversations list, individual conversations, and job notifications.
 
 #### `[zaobank_conversation]`
 - `user_id` (int): Other user in conversation. Also accepts `?user_id=X`.
@@ -309,7 +312,7 @@ Active state determined by current URL matching page slugs.
 
 ### Subpage Tabs
 
-Reusable tab navigation for sub-sections within a feature area. Used on the jobs-list, my-jobs, and job-form pages.
+Reusable tab navigation for sub-sections within a feature area. Used on the jobs pages (jobs-list, my-jobs, job-form) and the messages/exchanges pages (messages, exchanges, job updates).
 
 ```php
 // Set up tabs array before including the component
@@ -699,7 +702,7 @@ CREATE TABLE wp_zaobank_appreciations (
 
 ### wp_zaobank_messages
 
-1:1 messages between users, optionally linked to a specific exchange for context.
+1:1 messages between users, optionally linked to a specific exchange or job for context.
 
 ```sql
 CREATE TABLE wp_zaobank_messages (
@@ -709,6 +712,8 @@ CREATE TABLE wp_zaobank_messages (
     to_user_id bigint(20) UNSIGNED NOT NULL,
     message text NOT NULL,
     is_read tinyint(1) DEFAULT 0,
+    message_type varchar(20) NOT NULL DEFAULT 'direct',
+    job_id bigint(20) UNSIGNED DEFAULT NULL,
     created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY exchange_id (exchange_id),
@@ -722,6 +727,8 @@ CREATE TABLE wp_zaobank_messages (
 - `exchange_id`: Optional foreign key to `wp_zaobank_exchanges`. Provides context when a message relates to a specific job exchange.
 - `is_read`: Set to `0` on creation. Only the recipient (`to_user_id`) can mark as read.
 - `message`: Sanitized with `wp_kses_post()` to allow safe HTML.
+- `message_type`: Either `'direct'` (default, user-to-user messages) or `'job_update'` (system-generated notifications for job releases, completions, and appreciations).
+- `job_id`: Optional foreign key to a `timebank_job` post. Set on `job_update` messages to link the notification to its job.
 
 ### wp_zaobank_private_notes
 
@@ -745,6 +752,26 @@ CREATE TABLE wp_zaobank_private_notes (
 - NEVER expose via broad API queries
 - NEVER aggregate or analyze
 - NEVER visible to admins
+
+### wp_zaobank_archived_conversations
+
+Per-user conversation archive state. When a user archives a conversation, the other user's ID is recorded here. The conversations list query excludes archived conversations for the current user.
+
+```sql
+CREATE TABLE wp_zaobank_archived_conversations (
+    id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id bigint(20) UNSIGNED NOT NULL,
+    other_user_id bigint(20) UNSIGNED NOT NULL,
+    archived_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY user_conversation (user_id, other_user_id)
+);
+```
+
+**Notes**:
+- Uses `$wpdb->replace()` so re-archiving is idempotent.
+- Archiving hides the conversation from the list; messages are not deleted.
+- If the other user sends a new message, the conversation reappears (not yet implemented — currently stays archived).
 
 ### wp_zaobank_flags
 
@@ -837,7 +864,16 @@ Claim a job (authenticated).
 ```
 
 #### POST /jobs/{id}/complete
-Complete a job and record exchange (authenticated).
+Complete a job and record exchange (authenticated, job owner only).
+
+**Body** (optional):
+```json
+{
+    "hours": 3.0
+}
+```
+
+- `hours` (float, optional): Override the job's estimated hours with the actual hours worked. If omitted, uses the original job hours.
 
 **Response**:
 ```json
@@ -847,6 +883,30 @@ Complete a job and record exchange (authenticated).
     "exchange": {...}
 }
 ```
+
+A `job_update` message is automatically sent to the provider notifying them of the completion and hours credited.
+
+#### POST /jobs/{id}/release
+Release a claimed job back to available status (authenticated, provider only).
+
+**Body** (optional):
+```json
+{
+    "reason": "Schedule conflict, unable to complete"
+}
+```
+
+- `reason` (string, optional): Reason for releasing the job.
+
+**Response**:
+```json
+{
+    "message": "Job released successfully",
+    "job": {...}
+}
+```
+
+A `job_update` message is automatically sent to the job owner with the release reason.
 
 ### Job Types Endpoints
 
@@ -946,6 +1006,7 @@ Get current user's messages (authenticated).
 
 **Parameters**:
 - `with_user` (int, optional): Filter to only messages exchanged with a specific user ID (conversation view)
+- `message_type` (string, optional): Filter by message type — `'direct'` (default user messages) or `'job_update'` (system notifications). Omit to get all types.
 
 **Response**:
 ```json
@@ -991,7 +1052,7 @@ Send a new message (authenticated).
 ```
 
 #### POST /messages/{id}/read
-Mark a message as read (authenticated). Only the recipient can mark a message as read.
+Mark a single message as read (authenticated). Only the recipient can mark a message as read.
 
 **Response**:
 ```json
@@ -1005,6 +1066,106 @@ Mark a message as read (authenticated). Only the recipient can mark a message as
 {
     "code": "forbidden",
     "message": "You cannot mark this message as read"
+}
+```
+
+#### POST /me/messages/read-all
+Mark all messages from a specific user as read (authenticated). Bulk operation for marking an entire conversation as read from the conversations list.
+
+**Body**:
+```json
+{
+    "with_user": 42
+}
+```
+
+- `with_user` (int, required): The other user's ID whose messages should be marked as read.
+
+**Response**:
+```json
+{
+    "success": true,
+    "message": "Messages marked as read"
+}
+```
+
+#### POST /me/messages/archive
+Archive a conversation (authenticated). Hides the conversation from the conversations list without deleting messages.
+
+**Body**:
+```json
+{
+    "other_user_id": 42
+}
+```
+
+- `other_user_id` (int, required): The other user's ID in the conversation to archive.
+
+**Response**:
+```json
+{
+    "success": true,
+    "message": "Conversation archived"
+}
+```
+
+### Private Notes Endpoints
+
+Private notes are personal memory aids visible only to the author. See [Security Rules](#wp_zaobank_private_notes) above.
+
+#### GET /me/notes
+Get current user's private notes (authenticated).
+
+**Parameters**:
+- `subject_user_id` (int, optional): Filter notes about a specific user.
+
+**Response**:
+```json
+{
+    "notes": [
+        {
+            "id": 1,
+            "subject_user_id": 42,
+            "tag_slug": "job-completion",
+            "note": "Very reliable, arrived on time",
+            "created_at": "2026-01-28 14:30:00"
+        }
+    ]
+}
+```
+
+#### POST /me/notes
+Create a private note (authenticated).
+
+**Body**:
+```json
+{
+    "subject_user_id": 42,
+    "tag_slug": "job-completion",
+    "note": "Very reliable, arrived on time"
+}
+```
+
+- `subject_user_id` (int, required): The user the note is about.
+- `tag_slug` (string, required): Tag category (e.g., `'job-completion'`, or any configured private note tag).
+- `note` (string, optional): The note content.
+
+**Response** (201):
+```json
+{
+    "success": true,
+    "note_id": 5
+}
+```
+
+#### DELETE /me/notes/{id}
+Delete a private note (authenticated, owner only).
+
+**Response**:
+```json
+{
+    "success": true,
+    "message": "Note deleted"
 }
 ```
 
@@ -1289,9 +1450,22 @@ add_action('frm_after_create_entry', function($entry_id, $form_id) {
 
 - [ ] Create a job
 - [ ] Claim a job
-- [ ] Complete a job
+- [ ] Complete a job (with hours adjustment prompt)
+- [ ] Complete a job with appreciation and private notes
+- [ ] Release a claimed job (as provider, with reason)
+- [ ] Update/edit a job (as owner)
+- [ ] Delete a job (unclaimed → trash, claimed → archive)
 - [ ] Verify exchange is recorded
 - [ ] Check balance calculation
+- [ ] Send a message from profile page → opens conversation
+- [ ] Verify messages `?user_id=` routing to conversation view
+- [ ] Verify messages `?view=updates` routing to job updates view
+- [ ] Mark conversation as read from conversations list
+- [ ] Archive a conversation from conversations list
+- [ ] Report a message (flag icon on other user's messages)
+- [ ] View job update notifications (release/complete/appreciation)
+- [ ] Subpage tabs navigate correctly (messages ↔ exchanges ↔ job updates)
+- [ ] Create and delete private notes
 - [ ] Flag content
 - [ ] Review flagged content
 - [ ] Test region filtering

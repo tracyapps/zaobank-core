@@ -110,8 +110,9 @@ The plugin creates the following custom tables:
 - **wp_zaobank_exchanges** - Immutable records of completed time exchanges
 - **wp_zaobank_user_regions** - User-region affinity for smart filtering
 - **wp_zaobank_appreciations** - Public and private appreciation messages
-- **wp_zaobank_messages** - 1:1 messages between users
+- **wp_zaobank_messages** - 1:1 messages between users (with `message_type` for direct vs. job update messages)
 - **wp_zaobank_private_notes** - Personal memory aids (never visible to others)
+- **wp_zaobank_archived_conversations** - Per-user conversation archive state
 - **wp_zaobank_flags** - Content moderation flags
 
 ### Custom Post Types
@@ -133,10 +134,11 @@ All endpoints are namespaced under `/wp-json/zaobank/v1/`
 GET    /jobs                 - List jobs (supports filtering)
 POST   /jobs                 - Create a job
 GET    /jobs/{id}            - Get single job
-PUT    /jobs/{id}            - Update job
-DELETE /jobs/{id}            - Delete job
+PUT    /jobs/{id}            - Update job (owner only)
+DELETE /jobs/{id}            - Delete/archive job (owner only)
 POST   /jobs/{id}/claim      - Claim a job
-POST   /jobs/{id}/complete   - Complete job and record exchange
+POST   /jobs/{id}/complete   - Complete job and record exchange (accepts optional `hours` override)
+POST   /jobs/{id}/release    - Release a claimed job (provider only)
 GET    /jobs/mine            - Get current user's jobs
 GET    /job-types            - List all job type terms
 ```
@@ -168,9 +170,19 @@ GET    /users/{id}/appreciations         - Get user's appreciations
 ### Messages
 
 ```
-GET    /me/messages           - Get current user's messages (supports filtering)
+GET    /me/messages           - Get current user's messages (supports `with_user`, `message_type` filters)
 POST   /messages              - Send a message
-POST   /messages/{id}/read    - Mark a message as read
+POST   /messages/{id}/read    - Mark a single message as read
+POST   /me/messages/read-all  - Mark all messages from a user as read (param: `with_user`)
+POST   /me/messages/archive   - Archive a conversation (param: `other_user_id`)
+```
+
+### Private Notes
+
+```
+GET    /me/notes              - Get current user's private notes (optional `subject_user_id` filter)
+POST   /me/notes              - Create a private note (params: `subject_user_id`, `tag_slug`, `note`)
+DELETE /me/notes/{id}         - Delete a private note (owner only)
 ```
 
 ### Flags (Moderation)
@@ -415,7 +427,7 @@ Then edit the theme copy to customize the layout while keeping the data attribut
 | `my-jobs.php` | User's posted and claimed jobs |
 | `profile.php` | User profile view |
 | `profile-edit.php` | Profile edit form |
-| `messages.php` | Conversations list |
+| `messages.php` | Conversations list / job updates view |
 | `conversation.php` | Single conversation thread |
 | `exchanges.php` | Exchange history |
 | `appreciations.php` | Appreciations list |
@@ -668,8 +680,8 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 | `[zaobank_my_jobs]` | User's posted and claimed jobs | - |
 | `[zaobank_profile]` | User profile view | `user_id` (optional, defaults to current user) |
 | `[zaobank_profile_edit]` | Profile edit form | - |
-| `[zaobank_messages]` | Conversations list | - |
-| `[zaobank_conversation]` | Single conversation thread | `user_id` |
+| `[zaobank_messages]` | Conversations list; renders conversation view when `?user_id=` is in the URL, job updates view when `?view=updates` | - |
+| `[zaobank_conversation]` | Single conversation thread (standalone) | `user_id` |
 | `[zaobank_exchanges]` | Exchange history | - |
 | `[zaobank_appreciations]` | Appreciations received/given | `user_id` (optional) |
 
@@ -684,7 +696,7 @@ Create WordPress pages for each section:
 - `/timebank-my-jobs/` → `[zaobank_my_jobs]`
 - `/timebank-profile/` → `[zaobank_profile]`
 - `/timebank-profile-edit/` → `[zaobank_profile_edit]`
-- `/timebank-messages/` → `[zaobank_messages]`
+- `/timebank-messages/` → `[zaobank_messages]` (also handles `?user_id=X` for conversation view and `?view=updates` for job updates)
 - `/timebank-exchanges/` → `[zaobank_exchanges]`
 - `/timebank-appreciations/` → `[zaobank_appreciations]`
 

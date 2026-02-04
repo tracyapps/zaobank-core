@@ -305,6 +305,24 @@
   background: #218838;
 }
 
+.zaobank-btn-warning {
+  background: #e0a800;
+  color: var(--zaobank-white);
+}
+
+.zaobank-btn-warning:hover:not(:disabled) {
+  background: #c69500;
+}
+
+.zaobank-btn-danger {
+  background: #dc3545;
+  color: var(--zaobank-white);
+}
+
+.zaobank-btn-danger:hover:not(:disabled) {
+  background: #c82333;
+}
+
 .zaobank-btn-outline {
   background: transparent;
   border-color: var(--zaobank-gray-300);
@@ -1972,6 +1990,83 @@ a.zaobank-job-poster {
     bottom: var(--zaobank-space-6);
   }
 }
+/* ==========================================================================
+   Conversation Item Actions
+   ========================================================================== */
+.zaobank-conversation-item-wrapper {
+  display: flex;
+  align-items: stretch;
+}
+.zaobank-conversation-item-wrapper .zaobank-conversation-item {
+  flex: 1;
+  min-width: 0;
+}
+.zaobank-conversation-item-wrapper .zaobank-conversation-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--zaobank-space-1);
+  padding: var(--zaobank-space-2);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+.zaobank-conversation-item-wrapper:hover .zaobank-conversation-actions {
+  opacity: 1;
+}
+
+/* ==========================================================================
+   Message Report Button
+   ========================================================================== */
+.zaobank-message-flag {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: var(--zaobank-space-1);
+  color: var(--zaobank-gray-400);
+  transition: color 0.2s;
+}
+.zaobank-message-flag:hover {
+  color: var(--zaobank-gray-600);
+}
+
+.zaobank-message:hover .zaobank-message-flag {
+  display: inline-flex;
+}
+
+.zaobank-message-other .zaobank-message-flag {
+  margin-left: var(--zaobank-space-1);
+  align-self: center;
+}
+
+/* ==========================================================================
+   Job Update Cards
+   ========================================================================== */
+.zaobank-job-update-card {
+  margin-bottom: var(--zaobank-space-3);
+}
+.zaobank-job-update-card .zaobank-job-update-header {
+  display: flex;
+  align-items: center;
+  gap: var(--zaobank-space-3);
+  margin-bottom: var(--zaobank-space-3);
+}
+.zaobank-job-update-card .zaobank-job-update-user {
+  display: block;
+  font-weight: 600;
+  font-size: var(--zaobank-font-size-sm);
+}
+.zaobank-job-update-card .zaobank-job-update-time {
+  display: block;
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-500);
+}
+.zaobank-job-update-card .zaobank-job-update-message {
+  margin: 0 0 var(--zaobank-space-3);
+  font-size: var(--zaobank-font-size-sm);
+  line-height: 1.5;
+}
+
 /* ==========================================================================
    Print Styles
    ========================================================================== */

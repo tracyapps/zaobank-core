@@ -8,7 +8,17 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/me/messages', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'get_messages'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'with_user' => array(
+					'type' => 'integer',
+					'description' => __('Filter to conversation with specific user.', 'zaobank')
+				),
+				'message_type' => array(
+					'type' => 'string',
+					'description' => __('Filter by message type (direct, job_update).', 'zaobank')
+				)
+			)
 		));
 
 		register_rest_route($this->namespace, '/messages', array(
@@ -22,13 +32,47 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 			'callback' => array($this, 'mark_as_read'),
 			'permission_callback' => array($this, 'check_authentication')
 		));
+
+		// Mark all messages from a user as read
+		register_rest_route($this->namespace, '/me/messages/read-all', array(
+			'methods' => WP_REST_Server::CREATABLE,
+			'callback' => array($this, 'mark_conversation_read'),
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'with_user' => array(
+					'required' => true,
+					'type' => 'integer',
+					'description' => __('Other user ID in the conversation.', 'zaobank')
+				)
+			)
+		));
+
+		// Archive a conversation
+		register_rest_route($this->namespace, '/me/messages/archive', array(
+			'methods' => WP_REST_Server::CREATABLE,
+			'callback' => array($this, 'archive_conversation'),
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'other_user_id' => array(
+					'required' => true,
+					'type' => 'integer',
+					'description' => __('Other user ID to archive conversation with.', 'zaobank')
+				)
+			)
+		));
 	}
 
 	public function get_messages($request) {
 		$user_id = get_current_user_id();
 		$with_user = $request->get_param('with_user');
+		$message_type = $request->get_param('message_type');
 
-		$messages = ZAOBank_Messages::get_user_messages($user_id, 'all');
+		$args = array();
+		if ($message_type) {
+			$args['message_type'] = sanitize_key($message_type);
+		}
+
+		$messages = ZAOBank_Messages::get_user_messages($user_id, 'all', $args);
 
 		if ($with_user) {
 			$with_user = (int) $with_user;
@@ -85,6 +129,35 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 
 		return $this->success_response(array(
 			'message' => __('Message marked as read', 'zaobank')
+		));
+	}
+
+	public function mark_conversation_read($request) {
+		$user_id = get_current_user_id();
+		$with_user = (int) $request->get_param('with_user');
+
+		ZAOBank_Messages::mark_conversation_read($user_id, $with_user);
+
+		return $this->success_response(array(
+			'message' => __('Conversation marked as read', 'zaobank')
+		));
+	}
+
+	public function archive_conversation($request) {
+		$user_id = get_current_user_id();
+		$other_user_id = (int) $request->get_param('other_user_id');
+
+		$result = ZAOBank_Messages::archive_conversation($user_id, $other_user_id);
+
+		if (!$result) {
+			return $this->error_response(
+				'archive_failed',
+				__('Failed to archive conversation', 'zaobank')
+			);
+		}
+
+		return $this->success_response(array(
+			'message' => __('Conversation archived', 'zaobank')
 		));
 	}
 }

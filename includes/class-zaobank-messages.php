@@ -18,18 +18,23 @@ class ZAOBank_Messages {
 			);
 		}
 
-		$result = $wpdb->insert(
-			$table,
-			array(
-				'exchange_id' => isset($data['exchange_id']) ? (int) $data['exchange_id'] : null,
-				'from_user_id' => (int) $data['from_user_id'],
-				'to_user_id' => (int) $data['to_user_id'],
-				'message' => wp_kses_post($data['message']),
-				'is_read' => 0,
-				'created_at' => wp_date('Y-m-d H:i:s')
-			),
-			array('%d', '%d', '%d', '%s', '%d', '%s')
+		$message_type = isset($data['message_type']) ? sanitize_key($data['message_type']) : 'direct';
+		$job_id = isset($data['job_id']) ? (int) $data['job_id'] : null;
+
+		$insert_data = array(
+			'exchange_id' => isset($data['exchange_id']) ? (int) $data['exchange_id'] : null,
+			'from_user_id' => (int) $data['from_user_id'],
+			'to_user_id' => (int) $data['to_user_id'],
+			'message' => wp_kses_post($data['message']),
+			'is_read' => 0,
+			'message_type' => $message_type,
+			'job_id' => $job_id,
+			'created_at' => wp_date('Y-m-d H:i:s')
 		);
+
+		$formats = array('%d', '%d', '%d', '%s', '%d', '%s', '%d', '%s');
+
+		$result = $wpdb->insert($table, $insert_data, $formats);
 
 		if ($result === false) {
 			return new WP_Error(
@@ -44,7 +49,7 @@ class ZAOBank_Messages {
 	/**
 	 * Get messages for a user.
 	 */
-	public static function get_user_messages($user_id, $type = 'inbox') {
+	public static function get_user_messages($user_id, $type = 'inbox', $args = array()) {
 		global $wpdb;
 		$table = ZAOBank_Database::get_messages_table();
 
@@ -54,6 +59,26 @@ class ZAOBank_Messages {
 			$where = $wpdb->prepare('from_user_id = %d', $user_id);
 		} else {
 			$where = $wpdb->prepare('(to_user_id = %d OR from_user_id = %d)', $user_id, $user_id);
+		}
+
+		// Filter by message_type
+		if (!empty($args['message_type'])) {
+			$where .= $wpdb->prepare(' AND message_type = %s', $args['message_type']);
+		}
+
+		// Exclude archived conversations
+		if (empty($args['include_archived'])) {
+			$archived_ids = self::get_archived_user_ids($user_id);
+			if (!empty($archived_ids)) {
+				$placeholders = implode(',', array_fill(0, count($archived_ids), '%d'));
+				$where .= $wpdb->prepare(
+					" AND NOT (
+						(from_user_id IN ($placeholders) AND to_user_id = %d)
+						OR (to_user_id IN ($placeholders) AND from_user_id = %d)
+					)",
+					...array_merge($archived_ids, array($user_id), $archived_ids, array($user_id))
+				);
+			}
 		}
 
 		$messages = $wpdb->get_results(
@@ -93,10 +118,73 @@ class ZAOBank_Messages {
 	}
 
 	/**
+	 * Mark all messages in a conversation as read.
+	 */
+	public static function mark_conversation_read($user_id, $other_user_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_messages_table();
+
+		$wpdb->query($wpdb->prepare(
+			"UPDATE $table SET is_read = 1
+			 WHERE to_user_id = %d AND from_user_id = %d AND is_read = 0",
+			$user_id,
+			$other_user_id
+		));
+
+		return true;
+	}
+
+	/**
+	 * Archive a conversation.
+	 */
+	public static function archive_conversation($user_id, $other_user_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_archived_conversations_table();
+
+		$result = $wpdb->replace(
+			$table,
+			array(
+				'user_id' => (int) $user_id,
+				'other_user_id' => (int) $other_user_id,
+				'archived_at' => wp_date('Y-m-d H:i:s')
+			),
+			array('%d', '%d', '%s')
+		);
+
+		return $result !== false;
+	}
+
+	/**
+	 * Get archived user IDs for a user.
+	 */
+	public static function get_archived_user_ids($user_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_archived_conversations_table();
+
+		// Check if table exists (pre-migration)
+		$table_exists = $wpdb->get_var("SHOW TABLES LIKE '$table'");
+		if (!$table_exists) {
+			return array();
+		}
+
+		return $wpdb->get_col($wpdb->prepare(
+			"SELECT other_user_id FROM $table WHERE user_id = %d",
+			$user_id
+		));
+	}
+
+	/**
+	 * Get job update messages for a user.
+	 */
+	public static function get_job_update_messages($user_id) {
+		return self::get_user_messages($user_id, 'all', array('message_type' => 'job_update'));
+	}
+
+	/**
 	 * Format message data.
 	 */
 	private static function format_message_data($message) {
-		return array(
+		$data = array(
 			'id' => (int) $message->id,
 			'exchange_id' => $message->exchange_id ? (int) $message->exchange_id : null,
 			'from_user_id' => (int) $message->from_user_id,
@@ -107,5 +195,16 @@ class ZAOBank_Messages {
 			'is_read' => (bool) $message->is_read,
 			'created_at' => $message->created_at
 		);
+
+		if (isset($message->message_type)) {
+			$data['message_type'] = $message->message_type;
+		}
+		if (isset($message->job_id) && $message->job_id) {
+			$data['job_id'] = (int) $message->job_id;
+			$job = get_post($message->job_id);
+			$data['job_title'] = $job ? $job->post_title : '';
+		}
+
+		return $data;
 	}
 }

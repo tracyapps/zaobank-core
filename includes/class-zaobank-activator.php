@@ -94,12 +94,26 @@ class ZAOBank_Activator {
             to_user_id bigint(20) UNSIGNED NOT NULL,
             message text NOT NULL,
             is_read tinyint(1) DEFAULT 0,
+            message_type varchar(20) NOT NULL DEFAULT 'direct',
+            job_id bigint(20) UNSIGNED DEFAULT NULL,
             created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
             KEY exchange_id (exchange_id),
             KEY from_user_id (from_user_id),
             KEY to_user_id (to_user_id),
-            KEY is_read (is_read)
+            KEY is_read (is_read),
+            KEY message_type (message_type)
+        ) $charset_collate;";
+
+		// Archived conversations table
+		$table_archived = $wpdb->prefix . 'zaobank_archived_conversations';
+		$sql_archived = "CREATE TABLE $table_archived (
+            id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id bigint(20) UNSIGNED NOT NULL,
+            other_user_id bigint(20) UNSIGNED NOT NULL,
+            archived_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY  (id),
+            UNIQUE KEY user_conversation (user_id, other_user_id)
         ) $charset_collate;";
 
 		// Private notes table
@@ -145,6 +159,7 @@ class ZAOBank_Activator {
 		dbDelta($sql_messages);
 		dbDelta($sql_private_notes);
 		dbDelta($sql_flags);
+		dbDelta($sql_archived);
 
 		// Store database version
 		update_option('zaobank_db_version', ZAOBANK_VERSION);
@@ -175,7 +190,8 @@ class ZAOBank_Activator {
 				'flexible-schedule',
 				'needs-clear-instructions',
 				'prefers-morning',
-				'prefers-evening'
+				'prefers-evening',
+				'job-completion'
 			),
 			'zaobank_flag_reasons' => array(
 				'inappropriate-content',

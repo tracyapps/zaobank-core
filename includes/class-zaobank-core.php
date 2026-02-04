@@ -77,6 +77,7 @@ class ZAOBank_Core {
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-appreciations.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-flags.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-messages.php';
+		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-notes.php';
 
 		// Admin
 		require_once ZAOBANK_PLUGIN_DIR . 'admin/class-zaobank-admin.php';
@@ -151,6 +152,7 @@ class ZAOBank_Core {
 		$rest_appreciations = new ZAOBank_REST_Appreciations();
 		$rest_flags = new ZAOBank_REST_Flags();
 		$rest_messages = new ZAOBank_REST_Messages();
+		$rest_notes = new ZAOBank_REST_Notes();
 
 		$this->loader->add_action('rest_api_init', $rest_jobs, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_user, 'register_routes');
@@ -158,6 +160,7 @@ class ZAOBank_Core {
 		$this->loader->add_action('rest_api_init', $rest_appreciations, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_flags, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_messages, 'register_routes');
+		$this->loader->add_action('rest_api_init', $rest_notes, 'register_routes');
 	}
 
 	/**

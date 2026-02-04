@@ -115,9 +115,63 @@ class ZAOBank_Jobs {
 	}
 
 	/**
-	 * Complete a job and record the exchange.
+	 * Release a claimed job (provider gives it up).
 	 */
-	public static function complete_job($job_id, $user_id = null) {
+	public static function release_job($job_id, $reason = '', $user_id = null) {
+		if (!$user_id) {
+			$user_id = get_current_user_id();
+		}
+
+		$job = get_post($job_id);
+		if (!$job || $job->post_type !== 'timebank_job') {
+			return new WP_Error('invalid_job', __('Invalid job', 'zaobank'));
+		}
+
+		$provider_id = get_post_meta($job_id, 'provider_user_id', true);
+		if ((int) $provider_id !== (int) $user_id) {
+			return new WP_Error('not_provider', __('You are not the provider for this job', 'zaobank'));
+		}
+
+		$completed_at = get_post_meta($job_id, 'completed_at', true);
+		if ($completed_at) {
+			return new WP_Error('already_completed', __('Cannot release a completed job', 'zaobank'));
+		}
+
+		// Remove provider assignment
+		delete_post_meta($job_id, 'provider_user_id');
+
+		// Send a job update message to the requester
+		$reason_text = $reason ? sprintf(__("Reason: %s", 'zaobank'), $reason) : '';
+		ZAOBank_Messages::create_message(array(
+			'from_user_id' => $user_id,
+			'to_user_id' => (int) $job->post_author,
+			'message' => sprintf(
+				__("I've released your job '%s'. %s", 'zaobank'),
+				$job->post_title,
+				$reason_text
+			),
+			'message_type' => 'job_update',
+			'job_id' => $job_id
+		));
+
+		ZAOBank_Security::log_security_event('job_released', array(
+			'job_id' => $job_id,
+			'provider_id' => $user_id,
+			'reason' => $reason
+		));
+
+		return true;
+	}
+
+	/**
+	 * Complete a job and record the exchange.
+	 *
+	 * @param int        $job_id         Job post ID.
+	 * @param int|null   $user_id        User completing the job (defaults to current user).
+	 * @param float|null $hours_override Optional hours override.
+	 * @return int|WP_Error Exchange ID on success.
+	 */
+	public static function complete_job($job_id, $user_id = null, $hours_override = null) {
 		if (!$user_id) {
 			$user_id = get_current_user_id();
 		}
@@ -146,8 +200,17 @@ class ZAOBank_Jobs {
 			);
 		}
 
-		// Get hours
+		// Get hours (allow override)
 		$hours = get_post_meta($job_id, 'hours', true);
+
+		if ($hours_override !== null && $hours_override > 0) {
+			$hours_validation = ZAOBank_Security::validate_hours($hours_override);
+			if (is_wp_error($hours_validation)) {
+				return $hours_validation;
+			}
+			$hours = floatval($hours_override);
+			update_post_meta($job_id, 'hours', $hours);
+		}
 
 		if (!$hours) {
 			return new WP_Error('invalid_hours', __('Invalid hours for this job', 'zaobank'));
@@ -177,6 +240,19 @@ class ZAOBank_Jobs {
 		wp_update_post(array(
 			'ID' => $job_id,
 			'post_status' => 'publish'
+		));
+
+		// Send completion notification to provider
+		ZAOBank_Messages::create_message(array(
+			'from_user_id' => $user_id,
+			'to_user_id' => (int) $provider_id,
+			'message' => sprintf(
+				__("Your job '%s' has been marked complete. %s hours have been credited to your account.", 'zaobank'),
+				$job->post_title,
+				$hours
+			),
+			'message_type' => 'job_update',
+			'job_id' => $job_id
 		));
 
 		// Log the completion
