@@ -590,7 +590,11 @@
 					availability: profile.availability ? ZAOBank.escapeHtml(profile.availability) : '',
 					primary_region: profile.primary_region || null,
 					profile_tags: profile.profile_tags || [],
-					is_own: isOwn
+					is_own: isOwn,
+					discord_id: profile.discord_id || '',
+					discord_url: profile.discord_id ? 'https://discord.com/users/' + profile.discord_id : '',
+					has_signal: profile.has_signal || false,
+					show_connect: !!(profile.discord_id || profile.has_signal)
 				});
 
 				$content.html(html);
@@ -649,6 +653,7 @@
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
 				$form.find('[name="user_phone"]').val(profile.phone || '');
+				$form.find('[name="user_discord_id"]').val(profile.discord_id || '');
 
 				if (profile.primary_region && profile.primary_region.id) {
 					$form.find('[name="user_primary_region"]').val(profile.primary_region.id);
@@ -684,6 +689,7 @@
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
 				user_phone: $form.find('[name="user_phone"]').val(),
+				user_discord_id: $form.find('[name="user_discord_id"]').val(),
 				user_primary_region: $form.find('[name="user_primary_region"]').val(),
 				user_profile_tags: $form.find('[name="user_profile_tags[]"]:checked').map(function() {
 					return $(this).val();

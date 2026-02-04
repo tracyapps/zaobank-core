@@ -46,8 +46,16 @@ class ZAOBank_Shortcodes {
 
 	/**
 	 * Render jobs list template.
+	 *
+	 * If a job_id URL parameter is present, renders the single job view
+	 * instead. This allows the jobs list page to handle both views.
 	 */
 	public function render_jobs_list($atts) {
+		// If job_id is in the URL, render single job view
+		if (isset($_GET['job_id']) && absint($_GET['job_id']) > 0) {
+			return $this->render_job_single(array('id' => absint($_GET['job_id'])));
+		}
+
 		$atts = shortcode_atts(array(
 			'region' => '',
 			'status' => 'available'

@@ -97,16 +97,8 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					<label class="zaobank-label"><?php _e('Profile Tags', 'zaobank'); ?></label>
 					<div class="zaobank-checkbox-group" data-field="user_profile_tags">
 						<?php
-						$profile_tags = array(
-							'parent' => __('Parent', 'zaobank'),
-							'senior' => __('Senior', 'zaobank'),
-							'student' => __('Student', 'zaobank'),
-							'professional' => __('Working Professional', 'zaobank'),
-							'retired' => __('Retired', 'zaobank'),
-							'caregiver' => __('Caregiver', 'zaobank'),
-							'volunteer' => __('Active Volunteer', 'zaobank'),
-							'new_to_area' => __('New to the Area', 'zaobank')
-						);
+						$tags_field = acf_get_field('field_user_profile_tags');
+						$profile_tags = $tags_field ? $tags_field['choices'] : array();
 						foreach ($profile_tags as $value => $label) :
 						?>
 							<label class="zaobank-checkbox-label">
@@ -122,11 +114,8 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					<label class="zaobank-label"><?php _e('Contact Preferences', 'zaobank'); ?></label>
 					<div class="zaobank-checkbox-group" data-field="user_contact_preferences">
 						<?php
-						$contact_prefs = array(
-							'messages' => __('Messages on this site', 'zaobank'),
-							'email' => __('Email', 'zaobank'),
-							'phone' => __('Phone/Text', 'zaobank')
-						);
+						$prefs_field = acf_get_field('field_user_contact_preferences');
+						$contact_prefs = $prefs_field ? $prefs_field['choices'] : array();
 						foreach ($contact_prefs as $value => $label) :
 						?>
 							<label class="zaobank-checkbox-label">
@@ -148,6 +137,19 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					       class="zaobank-input"
 					       placeholder="<?php esc_attr_e('Your phone number (optional)', 'zaobank'); ?>">
 					<span class="zaobank-form-hint"><?php _e('Only visible to members you exchange with', 'zaobank'); ?></span>
+				</div>
+
+				<!-- Discord User ID -->
+				<div class="zaobank-form-group">
+					<label for="profile-discord" class="zaobank-label">
+						<?php _e('Discord User ID', 'zaobank'); ?>
+					</label>
+					<input type="text"
+					       id="profile-discord"
+					       name="user_discord_id"
+					       class="zaobank-input"
+					       placeholder="<?php esc_attr_e('e.g., 123456789012345678', 'zaobank'); ?>">
+					<span class="zaobank-form-hint"><?php _e('Enable Developer Mode in Discord, then right-click your profile to copy your User ID', 'zaobank'); ?></span>
 				</div>
 
 			</div>

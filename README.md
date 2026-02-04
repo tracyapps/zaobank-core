@@ -163,6 +163,14 @@ POST   /appreciations                    - Create appreciation
 GET    /users/{id}/appreciations         - Get user's appreciations
 ```
 
+### Messages
+
+```
+GET    /me/messages           - Get current user's messages (supports filtering)
+POST   /messages              - Send a message
+POST   /messages/{id}/read    - Mark a message as read
+```
+
 ### Flags (Moderation)
 
 ```
@@ -240,6 +248,54 @@ fetch('/wp-json/zaobank/v1/me/balance', {
   });
 ```
 
+### Send a Message
+
+```javascript
+fetch('/wp-json/zaobank/v1/messages', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-WP-Nonce': wpApiSettings.nonce
+  },
+  body: JSON.stringify({
+    to_user_id: 42,
+    message: "Hey, I can help with your gardening job!",
+    exchange_id: 5  // optional, links message to a specific exchange
+  })
+})
+  .then(response => response.json())
+  .then(data => console.log('Message sent:', data));
+```
+
+### Get Messages (Conversation with a Specific User)
+
+```javascript
+fetch('/wp-json/zaobank/v1/me/messages?with_user=42', {
+  headers: {
+    'X-WP-Nonce': wpApiSettings.nonce
+  }
+})
+  .then(response => response.json())
+  .then(data => {
+    data.messages.forEach(msg => {
+      console.log(msg.from_user_name + ': ' + msg.message);
+    });
+  });
+```
+
+### Mark a Message as Read
+
+```javascript
+fetch('/wp-json/zaobank/v1/messages/15/read', {
+  method: 'POST',
+  headers: {
+    'X-WP-Nonce': wpApiSettings.nonce
+  }
+})
+  .then(response => response.json())
+  .then(data => console.log('Marked as read:', data));
+```
+
 ## ACF Field Groups
 
 The plugin registers two ACF field groups:
@@ -260,8 +316,9 @@ The plugin registers two ACF field groups:
 - Bio (textarea)
 - Primary Region (taxonomy)
 - Profile Tags (checkbox)
-- Contact Preferences (checkbox)
+- Contact Preferences (checkbox) - Email, Phone, Text, Signal, Discord, ZAO Bank Messages
 - Phone Number (text)
+- Discord User ID (text) - Links to `https://discord.com/users/{id}` on profile
 
 ## Security Features
 
@@ -602,8 +659,8 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 | Shortcode | Description | Parameters |
 |-----------|-------------|------------|
 | `[zaobank_dashboard]` | User dashboard with balance, stats, activity | - |
-| `[zaobank_jobs]` | Browse available jobs with filters | `region`, `status` |
-| `[zaobank_job]` | Single job detail view | `id` or `?job_id=` URL param |
+| `[zaobank_jobs]` | Browse available jobs with filters; also renders single job view when `?job_id=` is in the URL | `region`, `status` |
+| `[zaobank_job]` | Single job detail view (standalone) | `id` or `?job_id=` URL param |
 | `[zaobank_job_form]` | Create/edit job form | `id` for edit mode |
 | `[zaobank_my_jobs]` | User's posted and claimed jobs | - |
 | `[zaobank_profile]` | User profile view | `user_id` (optional, defaults to current user) |
@@ -619,7 +676,7 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 
 Create WordPress pages for each section:
 - `/timebank-dashboard/` → `[zaobank_dashboard]`
-- `/timebank-jobs/` → `[zaobank_jobs]`
+- `/timebank-jobs/` → `[zaobank_jobs]` (also handles single job view via `?job_id=X`)
 - `/timebank-new-job/` → `[zaobank_job_form]`
 - `/timebank-my-jobs/` → `[zaobank_my_jobs]`
 - `/timebank-profile/` → `[zaobank_profile]`
@@ -635,7 +692,7 @@ Create an `/app/` parent page with child pages. This enables easy AAM protection
 ```
 /app/                    (parent page)
   /app/dashboard/        [zaobank_dashboard]
-  /app/jobs/             [zaobank_jobs]
+  /app/jobs/             [zaobank_jobs] (also handles /app/jobs/?job_id=X)
   /app/new-job/          [zaobank_job_form]
   /app/my-jobs/          [zaobank_my_jobs]
   /app/profile/          [zaobank_profile]

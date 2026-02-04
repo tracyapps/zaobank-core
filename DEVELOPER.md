@@ -120,8 +120,8 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 | Shortcode | Template File | Description | Auth Required |
 |-----------|---------------|-------------|---------------|
 | `[zaobank_dashboard]` | `dashboard.php` | User dashboard with balance, stats, activity | Yes |
-| `[zaobank_jobs]` | `jobs-list.php` | Browse available jobs with filters | No |
-| `[zaobank_job id="X"]` | `job-single.php` | Single job detail view | No |
+| `[zaobank_jobs]` | `jobs-list.php` or `job-single.php` | Browse available jobs; renders single job view when `?job_id=` is in the URL | No |
+| `[zaobank_job id="X"]` | `job-single.php` | Single job detail view (standalone) | No |
 | `[zaobank_job_form]` | `job-form.php` | Create/edit job form | Yes |
 | `[zaobank_my_jobs]` | `my-jobs.php` | User's posted and claimed jobs | Yes |
 | `[zaobank_profile]` | `profile.php` | User profile (own or other) | Partial |
@@ -136,9 +136,11 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 #### `[zaobank_jobs]`
 - `region` (int): Filter by region ID
 - `status` (string): Filter by status (default: "available")
+- **URL routing**: When `?job_id=X` is present in the URL, this shortcode automatically delegates to `[zaobank_job]` and renders the single job view instead of the list. This allows one page to handle both the jobs list and individual job views without needing a separate page for `[zaobank_job]`.
 
 #### `[zaobank_job]`
 - `id` (int): Job ID. Also accepts `?job_id=X` URL parameter.
+- Can be used standalone on a dedicated page, or accessed automatically through `[zaobank_jobs]` via the URL parameter routing described above.
 
 #### `[zaobank_job_form]`
 - `id` (int): Job ID for edit mode. Also accepts `?job_id=X` URL parameter.
@@ -656,6 +658,32 @@ CREATE TABLE wp_zaobank_appreciations (
 );
 ```
 
+### wp_zaobank_messages
+
+1:1 messages between users, optionally linked to a specific exchange for context.
+
+```sql
+CREATE TABLE wp_zaobank_messages (
+    id bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+    exchange_id bigint(20) UNSIGNED DEFAULT NULL,
+    from_user_id bigint(20) UNSIGNED NOT NULL,
+    to_user_id bigint(20) UNSIGNED NOT NULL,
+    message text NOT NULL,
+    is_read tinyint(1) DEFAULT 0,
+    created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY exchange_id (exchange_id),
+    KEY from_user_id (from_user_id),
+    KEY to_user_id (to_user_id),
+    KEY is_read (is_read)
+);
+```
+
+**Field Notes**:
+- `exchange_id`: Optional foreign key to `wp_zaobank_exchanges`. Provides context when a message relates to a specific job exchange.
+- `is_read`: Set to `0` on creation. Only the recipient (`to_user_id`) can mark as read.
+- `message`: Sanitized with `wp_kses_post()` to allow safe HTML.
+
 ### wp_zaobank_private_notes
 
 **CRITICAL PRIVACY**: Personal memory aids, never visible to anyone except author.
@@ -808,8 +836,115 @@ Get current user's exchange history (authenticated).
 #### GET /me/profile
 Get current user's profile (authenticated).
 
+**Response**:
+```json
+{
+    "id": 42,
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "skills": "Gardening, tutoring",
+    "availability": "Weekday evenings",
+    "bio": "Community organizer and plant lover",
+    "profile_tags": ["reliable", "creative"],
+    "registered": "2025-01-15 10:30:00",
+    "primary_region": { "id": 5, "name": "Milwaukee", "slug": "milwaukee" },
+    "discord_id": "123456789012345678",
+    "has_signal": true,
+    "contact_preferences": ["email", "signal", "discord", "platform-message"],
+    "phone": "414-555-1234"
+}
+```
+
+**Notes**:
+- `discord_id` and `has_signal` are included on both own and public profiles
+- `contact_preferences`, `phone`, and `email` are only included on own profile (excluded from `GET /users/{id}`)
+- `has_signal` is derived from whether `signal` is in the user's contact preferences
+
 #### PUT /me/profile
 Update current user's profile (authenticated).
+
+**Body** (all fields optional):
+```json
+{
+    "user_bio": "string",
+    "user_skills": "string",
+    "user_availability": "string",
+    "user_phone": "string",
+    "user_discord_id": "string",
+    "user_primary_region": 5,
+    "user_profile_tags": ["reliable", "creative"],
+    "user_contact_preferences": ["email", "signal", "discord", "platform-message"]
+}
+```
+
+### Messages Endpoints
+
+#### GET /me/messages
+Get current user's messages (authenticated).
+
+**Parameters**:
+- `with_user` (int, optional): Filter to only messages exchanged with a specific user ID (conversation view)
+
+**Response**:
+```json
+{
+    "messages": [
+        {
+            "id": 1,
+            "exchange_id": null,
+            "from_user_id": 42,
+            "from_user_name": "Jane Doe",
+            "to_user_id": 7,
+            "to_user_name": "John Smith",
+            "message": "Hey, I can help with your gardening job!",
+            "is_read": false,
+            "created_at": "2026-01-28 14:30:00"
+        }
+    ]
+}
+```
+
+#### POST /messages
+Send a new message (authenticated).
+
+**Body**:
+```json
+{
+    "to_user_id": 42,
+    "message": "string (required)",
+    "exchange_id": 5
+}
+```
+
+- `to_user_id` (int, required): Recipient user ID
+- `message` (string, required): Message content (sanitized with `wp_kses_post`)
+- `exchange_id` (int, optional): Link message to a specific exchange for context
+
+**Response** (201):
+```json
+{
+    "message": "Message sent successfully",
+    "message_id": 15
+}
+```
+
+#### POST /messages/{id}/read
+Mark a message as read (authenticated). Only the recipient can mark a message as read.
+
+**Response**:
+```json
+{
+    "message": "Message marked as read"
+}
+```
+
+**Error** (403 - if current user is not the recipient):
+```json
+{
+    "code": "forbidden",
+    "message": "You cannot mark this message as read"
+}
+```
 
 ### Flags Endpoints
 

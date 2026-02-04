@@ -97,6 +97,20 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 </div>
 {{/if}}
 
+{{#if show_connect}}
+<div class="zaobank-card zaobank-profile-section">
+	<div class="zaobank-card-header">
+		<h2 class="zaobank-card-title"><?php _e('Connect', 'zaobank'); ?></h2>
+	</div>
+	<div class="zaobank-card-body">
+		<div class="zaobank-tags">
+			{{#if discord_url}}<a href="{{discord_url}}" target="_blank" rel="noopener" class="zaobank-tag zaobank-tag-link">Discord</a>{{/if}}
+			{{#if has_signal}}<span class="zaobank-tag">Signal</span>{{/if}}
+		</div>
+	</div>
+</div>
+{{/if}}
+
 <!-- Appreciations Section -->
 <div class="zaobank-card zaobank-profile-section">
 	<div class="zaobank-card-header">

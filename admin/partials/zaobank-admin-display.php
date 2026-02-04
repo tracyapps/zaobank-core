@@ -36,7 +36,7 @@ $total_users = count_users();
 
 			<div class="zaobank-stat-card">
 				<h3><?php _e('Total Hours Exchanged', 'zaobank'); ?></h3>
-				<p class="stat-number"><?php echo number_format($total_hours, 1); ?></p>
+				<p class="stat-number"><?php echo number_format((float)$total_hours, 1); ?></p>
 			</div>
 
 			<div class="zaobank-stat-card">

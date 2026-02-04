@@ -175,6 +175,10 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			update_user_meta($user_id, 'user_phone', sanitize_text_field($params['user_phone']));
 		}
 
+		if (isset($params['user_discord_id'])) {
+			update_user_meta($user_id, 'user_discord_id', sanitize_text_field($params['user_discord_id']));
+		}
+
 		$user = get_userdata($user_id);
 		$profile = $this->format_user_profile($user);
 
@@ -284,8 +288,15 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		}
 
 		// Private fields (only for own profile)
+		// Discord ID is public (visible on all profiles for connection)
+		$profile['discord_id'] = get_user_meta($user->ID, 'user_discord_id', true);
+
+		// Check if user has Signal in their contact preferences
+		$contact_prefs = get_user_meta($user->ID, 'user_contact_preferences', true);
+		$profile['has_signal'] = is_array($contact_prefs) && in_array('signal', $contact_prefs);
+
 		if (!$public_only) {
-			$profile['contact_preferences'] = get_user_meta($user->ID, 'user_contact_preferences', true);
+			$profile['contact_preferences'] = $contact_prefs;
 			$profile['phone'] = get_user_meta($user->ID, 'user_phone', true);
 		}
 
