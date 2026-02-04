@@ -538,16 +538,6 @@
   border-radius: var(--zaobank-radius-full);
 }
 
-.zaobank-tag-link {
-  text-decoration: none;
-  color: var(--zaobank-white);
-  cursor: pointer;
-}
-
-.zaobank-tag-link:hover {
-  opacity: 0.85;
-}
-
 .zaobank-tag-badge {
   display: inline-flex;
   align-items: center;
@@ -1830,15 +1820,9 @@
    Responsive: Desktop (1024px+)
    ========================================================================== */
 @media (min-width: 1024px) {
-  :root {
-    --zaobank-bottom-nav-height: 0px;
-  }
   .zaobank-container {
     max-width: 960px;
     padding-bottom: var(--zaobank-space-8);
-  }
-  .zaobank-bottom-nav {
-    display: none;
   }
   .zaobank-fab {
     bottom: var(--zaobank-space-6);
