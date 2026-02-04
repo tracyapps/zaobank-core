@@ -135,6 +135,20 @@ class ZAOBank_ACF {
 			'title' => 'Time Bank Profile',
 			'fields' => array(
 				array(
+					'key' => 'field_user_profile_image',
+					'label' => 'Profile Image',
+					'name' => 'user_profile_image',
+					'type' => 'image',
+					'instructions' => 'Upload a profile photo (replaces Gravatar)',
+					'required' => 0,
+					'return_format' => 'id',
+					'preview_size' => 'thumbnail',
+					'library' => 'all',
+					'min_width' => 96,
+					'min_height' => 96,
+					'mime_types' => 'jpg,jpeg,png,gif,webp',
+				),
+				array(
 					'key' => 'field_user_skills',
 					'label' => 'Skills I Can Offer',
 					'name' => 'user_skills',

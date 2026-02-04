@@ -43,7 +43,8 @@ zaobank-core/
 │       ├── exchanges.php           # Exchange history
 │       ├── appreciations.php       # Appreciations list
 │       └── components/
-│           └── bottom-nav.php      # Mobile bottom navigation
+│           ├── bottom-nav.php      # Mobile bottom navigation
+│           └── subpage-tabs.php   # Reusable subpage tab navigation
 ├── languages/                      # Translation files
 ├── zaobank-core.php               # Main plugin file + theme template tags
 ├── uninstall.php                  # Cleanup on uninstall
@@ -214,13 +215,29 @@ Simple Handlebars-like template syntax:
 {{#if has_value}}Show this{{/if}}
 {{#unless is_empty}}Show if not empty{{/unless}}
 
-// Loops
+// Loops (primitives)
 {{#each items}}
     <span>{{this}}</span>
 {{/each}}
 
+// Loops (objects)
+{{#each job_types}}
+    <span>{{this.name}}</span>
+{{/each}}
+
 // Nested properties
 {{user.name}}
+```
+
+**Important**: The template engine does **not** support `{{else}}`. Use separate `{{#if}}` and `{{#unless}}` blocks instead:
+
+```handlebars
+{{!-- WRONG: {{else}} is not supported --}}
+{{#if is_own}}Edit{{else}}Message{{/if}}
+
+{{!-- CORRECT: use separate blocks --}}
+{{#if is_own}}Edit{{/if}}
+{{#unless is_own}}Message{{/unless}}
 ```
 
 Usage:
@@ -230,7 +247,8 @@ ZAOBank.renderTemplate(templateHtml, {
     title: 'Job Title',
     hours: 2.5,
     location: 'Downtown',
-    skills: ['gardening', 'lifting']
+    skills: ['gardening', 'lifting'],
+    job_types: [{ id: 1, name: 'Gardening', slug: 'gardening' }]
 });
 ```
 
@@ -288,6 +306,27 @@ Navigation items:
 5. **Profile** - User profile
 
 Active state determined by current URL matching page slugs.
+
+### Subpage Tabs
+
+Reusable tab navigation for sub-sections within a feature area. Used on the jobs-list, my-jobs, and job-form pages.
+
+```php
+// Set up tabs array before including the component
+$tabs = array(
+    array('label' => __('all jobs', 'zaobank'), 'url' => $urls['jobs'], 'current' => true),
+    array('label' => __('my jobs', 'zaobank'), 'url' => $urls['my_jobs']),
+    array('label' => __('post a job', 'zaobank'), 'url' => $urls['job_form']),
+);
+include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
+```
+
+Each tab item supports:
+- `label` (string, required): Display text
+- `url` (string, required): Link URL
+- `current` (bool, optional): Whether this tab is the active page
+
+The component renders a `<nav class="zaobank-subpage-tabs">` element with `role="tablist"`.
 
 ### Page URL Configuration
 
@@ -757,6 +796,7 @@ List all available jobs.
 - `per_page` (int): Items per page (default: 20, max: 100)
 - `region` (int): Filter by region ID
 - `status` (string): Filter by status (available|claimed|completed)
+- `job_types` (array of int): Filter by job type term IDs
 
 **Response**:
 ```json
@@ -778,6 +818,7 @@ Create a new job (authenticated).
     "hours": 2.5,  // number (required)
     "location": "string",
     "regions": [1, 2],  // array of region IDs
+    "job_types": [3, 7],  // array of job type term IDs
     "skills_required": "string",
     "preferred_date": "2024-05-15",
     "flexible_timing": true
@@ -805,6 +846,23 @@ Complete a job and record exchange (authenticated).
     "job": {...},
     "exchange": {...}
 }
+```
+
+### Job Types Endpoints
+
+#### GET /job-types
+List all job type terms (public, no auth required).
+
+**Response**:
+```json
+[
+    {
+        "id": 3,
+        "name": "Gardening",
+        "slug": "gardening",
+        "count": 5
+    }
+]
 ```
 
 ### User Endpoints
@@ -842,6 +900,7 @@ Get current user's profile (authenticated).
     "id": 42,
     "name": "Jane Doe",
     "email": "jane@example.com",
+    "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
     "skills": "Gardening, tutoring",
     "availability": "Weekday evenings",
     "bio": "Community organizer and plant lover",
@@ -859,6 +918,8 @@ Get current user's profile (authenticated).
 - `discord_id` and `has_signal` are included on both own and public profiles
 - `contact_preferences`, `phone`, and `email` are only included on own profile (excluded from `GET /users/{id}`)
 - `has_signal` is derived from whether `signal` is in the user's contact preferences
+- `avatar_url` is included on both own and public profiles. Uses ACF `user_profile_image` attachment if set, falls back to Gravatar.
+- `profile_image_id` (attachment ID) is only included on own profile
 
 #### PUT /me/profile
 Update current user's profile (authenticated).
@@ -872,6 +933,7 @@ Update current user's profile (authenticated).
     "user_phone": "string",
     "user_discord_id": "string",
     "user_primary_region": 5,
+    "user_profile_image": 456,
     "user_profile_tags": ["reliable", "creative"],
     "user_contact_preferences": ["email", "signal", "discord", "platform-message"]
 }
@@ -1134,6 +1196,32 @@ if (!wp_verify_nonce($_POST['_wpnonce'], 'zaobank_action')) {
 
 ## Extending the Plugin
 
+### Taxonomies
+
+The plugin registers two taxonomies on the `timebank_job` post type:
+
+| Taxonomy | Slug | Type | REST Base |
+|----------|------|------|-----------|
+| `zaobank_region` | `zaobank_region` | Hierarchical (category-like) | `regions` |
+| `zaobank_job_type` | `zaobank_job_type` | Non-hierarchical (tag-like) | `job-types` |
+
+Both are admin-manageable (`show_ui: true`, `show_admin_column: true`). Job types can be assigned to jobs via the REST API or the job form, and are used for filtering on the jobs list page.
+
+### ACF Field Groups
+
+The plugin registers two ACF field groups programmatically:
+
+| Group | Key | Location |
+|-------|-----|----------|
+| Job Fields | `group_zaobank_job` | `timebank_job` post type |
+| User Profile Fields | `group_zaobank_user_profile` | User edit/profile screens |
+
+**User Profile Fields** include:
+- `user_profile_image` (image, return format: ID) — Custom profile photo, replaces Gravatar when set. Stored as user meta. Minimum 96x96px, accepts jpg/jpeg/png/gif/webp.
+- `user_bio`, `user_skills`, `user_availability`, `user_phone`, `user_discord_id`, `user_primary_region`, `user_profile_tags`, `user_contact_preferences`
+
+The profile image is selected via the WordPress media modal (`wp.media`) on the profile edit page. The attachment ID is stored as user meta and resolved to a URL via `wp_get_attachment_image_url()`. Use `ZAOBank_Helpers::get_user_avatar_url($user_id)` to get the resolved URL with Gravatar fallback.
+
 ### Adding Custom Job Fields
 
 1. Register ACF fields:
@@ -1207,6 +1295,9 @@ add_action('frm_after_create_entry', function($entry_id, $form_id) {
 - [ ] Flag content
 - [ ] Review flagged content
 - [ ] Test region filtering
+- [ ] Test job type filtering
+- [ ] Test profile image upload and display
+- [ ] Verify profile buttons (own vs. other user)
 - [ ] Test rate limiting
 - [ ] Test permission checks
 

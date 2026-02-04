@@ -179,6 +179,15 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			update_user_meta($user_id, 'user_discord_id', sanitize_text_field($params['user_discord_id']));
 		}
 
+		if (isset($params['user_profile_image'])) {
+			$image_id = absint($params['user_profile_image']);
+			if ($image_id && get_post($image_id) && wp_attachment_is_image($image_id)) {
+				update_user_meta($user_id, 'user_profile_image', $image_id);
+			} elseif ($image_id === 0) {
+				delete_user_meta($user_id, 'user_profile_image');
+			}
+		}
+
 		$user = get_userdata($user_id);
 		$profile = $this->format_user_profile($user);
 
@@ -267,6 +276,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'id' => $user->ID,
 			'name' => $user->display_name,
 			'email' => $public_only ? null : $user->user_email,
+			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 96),
 			'skills' => get_user_meta($user->ID, 'user_skills', true),
 			'availability' => get_user_meta($user->ID, 'user_availability', true),
 			'bio' => get_user_meta($user->ID, 'user_bio', true),
@@ -298,6 +308,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		if (!$public_only) {
 			$profile['contact_preferences'] = $contact_prefs;
 			$profile['phone'] = get_user_meta($user->ID, 'user_phone', true);
+			$profile['profile_image_id'] = (int) get_user_meta($user->ID, 'user_profile_image', true);
 		}
 
 		return $profile;

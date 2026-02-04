@@ -85,6 +85,13 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 			'callback' => array($this, 'get_my_jobs'),
 			'permission_callback' => array($this, 'check_authentication')
 		));
+
+		// List job types
+		register_rest_route($this->namespace, '/job-types', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'get_job_types'),
+			'permission_callback' => '__return_true'
+		));
 	}
 
 	/**
@@ -101,6 +108,24 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		// Filter by region
 		if ($request->get_param('region')) {
 			$args['region'] = (int) $request->get_param('region');
+		}
+
+		// Filter by job types
+		$job_types = $request->get_param('job_types');
+		if (!empty($job_types)) {
+			if (!is_array($job_types)) {
+				$job_types = explode(',', $job_types);
+			}
+			$job_types = array_map('intval', $job_types);
+
+			if (!isset($args['tax_query'])) {
+				$args['tax_query'] = array();
+			}
+			$args['tax_query'][] = array(
+				'taxonomy' => 'zaobank_job_type',
+				'field'    => 'term_id',
+				'terms'    => $job_types,
+			);
 		}
 
 		// Filter by status
@@ -405,6 +430,11 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 				'description' => __('Filter by job status.', 'zaobank'),
 				'type' => 'string',
 				'enum' => array('available', 'claimed', 'completed')
+			),
+			'job_types' => array(
+				'description' => __('Filter by job type term IDs (comma-separated or array).', 'zaobank'),
+				'type' => 'array',
+				'items' => array('type' => 'integer')
 			)
 		);
 	}
@@ -438,6 +468,11 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 				'type' => 'array',
 				'items' => array('type' => 'integer'),
 				'description' => __('Region IDs', 'zaobank')
+			),
+			'job_types' => array(
+				'type' => 'array',
+				'items' => array('type' => 'integer'),
+				'description' => __('Job Type IDs', 'zaobank')
 			)
 		);
 	}
@@ -454,5 +489,33 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		}
 
 		return $params;
+	}
+
+	/**
+	 * Get all job types.
+	 */
+	public function get_job_types($request) {
+		$terms = get_terms(array(
+			'taxonomy'   => 'zaobank_job_type',
+			'hide_empty' => false,
+			'orderby'    => 'name',
+			'order'      => 'ASC',
+		));
+
+		if (is_wp_error($terms)) {
+			return $this->success_response(array('job_types' => array()));
+		}
+
+		$job_types = array();
+		foreach ($terms as $term) {
+			$job_types[] = array(
+				'id'    => $term->term_id,
+				'name'  => $term->name,
+				'slug'  => $term->slug,
+				'count' => $term->count,
+			);
+		}
+
+		return $this->success_response(array('job_types' => $job_types));
 	}
 }

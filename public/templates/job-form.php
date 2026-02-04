@@ -16,24 +16,28 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 
 <div class="zaobank-container zaobank-job-form-page" data-component="job-form" data-job-id="<?php echo esc_attr($job_id); ?>">
 
-	<!-- Back Link -->
-	<a href="<?php echo esc_url($is_edit ? $urls['my_jobs'] : $urls['jobs']); ?>" class="zaobank-back-link">
-		<svg class="zaobank-back-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<line x1="19" y1="12" x2="5" y2="12"/>
-			<polyline points="12 19 5 12 12 5"/>
-		</svg>
-		<?php _e('Back', 'zaobank'); ?>
-	</a>
+
 
 	<header class="zaobank-page-header">
-		<h1 class="zaobank-page-title">
-			<?php echo $is_edit ? __('Edit Job', 'zaobank') : __('Request Help', 'zaobank'); ?>
-		</h1>
-		<?php if (!$is_edit) : ?>
+		<h1 class="zaobank-page-title"><?php _e('Jobs', 'zaobank'); ?></h1>
+		<nav class="zaobank-subpage-tabs">
+			<ul role="tablist">
+				<li role="tab" class="subpage-tab">
+					<a href="<?php echo esc_url($urls['jobs']); ?>">all jobs</a>
+				</li>
+				<li role="tab" class="subpage-tab">
+					<a href="<?php echo esc_url($urls['my_jobs']); ?>">my jobs</a>
+				</li>
+				<li role="tab" class="subpage-tab">
+					<span><?php echo $is_edit ? __('Edit Job', 'zaobank') : __('post a job', 'zaobank'); ?></span>
+				</li>
+			</ul>
+		</nav>
+		
+	</header>
+	<?php if (!$is_edit) : ?>
 			<p class="zaobank-page-subtitle"><?php _e('Describe what you need help with and how long it might take.', 'zaobank'); ?></p>
 		<?php endif; ?>
-	</header>
-
 	<form id="zaobank-job-form" class="zaobank-form" data-loading="<?php echo $is_edit ? 'true' : 'false'; ?>">
 		<?php wp_nonce_field('zaobank_job_form', 'zaobank_nonce'); ?>
 		<input type="hidden" name="job_id" value="<?php echo esc_attr($job_id); ?>">

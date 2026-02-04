@@ -485,6 +485,65 @@
   width: 100%;
 }
 
+/* Filter Panel (slide-out) */
+.zaobank-filter-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 999;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s, visibility 0.3s;
+}
+.zaobank-filter-panel-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.zaobank-filter-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 280px;
+  max-width: 85vw;
+  background: var(--zaobank-white);
+  z-index: 1000;
+  transform: translateX(-100%);
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--zaobank-shadow-lg);
+}
+.theme-dark .zaobank-filter-panel {
+  background: var(--zaobank-gray-900);
+}
+.zaobank-filter-panel.open {
+  transform: translateX(0);
+}
+
+.zaobank-filter-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--zaobank-space-4);
+  border-bottom: 1px solid var(--zaobank-darken-20);
+}
+.zaobank-filter-panel-header h3 {
+  margin: 0;
+  font-size: var(--zaobank-font-size-lg);
+  font-weight: 600;
+}
+
+.zaobank-filter-panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--zaobank-space-4);
+}
+
 /* ==========================================================================
    Badges
    ========================================================================== */
@@ -549,6 +608,18 @@
   font-weight: 600;
 }
 
+.zaobank-tag-sm {
+  padding: var(--zaobank-space-1) var(--zaobank-space-2);
+  font-size: var(--zaobank-font-size-xs);
+}
+
+.zaobank-job-types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-1);
+  margin-bottom: var(--zaobank-space-3);
+}
+
 /* ==========================================================================
    Tabs
    ========================================================================== */
@@ -603,6 +674,44 @@
 .zaobank-tabs-compact .zaobank-tab {
   padding: var(--zaobank-space-2) var(--zaobank-space-3);
   font-size: var(--zaobank-font-size-sm);
+}
+
+/* Subpage Tabs */
+.zaobank-subpage-tabs {
+  margin-top: var(--zaobank-space-2);
+}
+.zaobank-subpage-tabs ul {
+  display: flex;
+  gap: var(--zaobank-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-bottom: 2px solid var(--zaobank-darken-40);
+}
+.zaobank-subpage-tabs .subpage-tab {
+  font-size: var(--zaobank-font-size-sm);
+  font-weight: 500;
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+}
+.zaobank-subpage-tabs .subpage-tab a {
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.zaobank-subpage-tabs .subpage-tab a:hover {
+  opacity: 1;
+}
+.zaobank-subpage-tabs .subpage-tab span {
+  display: block;
+}
+.zaobank-subpage-tabs .subpage-tab.current-tab {
+  border-bottom-color: var(--zaobank-primary);
+}
+.zaobank-subpage-tabs .subpage-tab.current-tab span {
+  font-weight: 600;
 }
 
 .zaobank-tab-panel {
@@ -700,6 +809,15 @@
   align-items: center;
   gap: var(--zaobank-space-2);
   font-size: var(--zaobank-font-size-sm);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.zaobank-job-poster:hover {
+  opacity: 0.8;
+}
+
+a.zaobank-job-poster {
+  color: inherit;
 }
 
 .zaobank-job-card-actions {
@@ -830,6 +948,22 @@
 .zaobank-profile-header-section {
   text-align: center;
   margin-bottom: var(--zaobank-space-6);
+  position: relative;
+}
+
+.zaobank-profile-report {
+  position: absolute;
+  top: 0;
+  right: 0;
+  opacity: 0.5;
+  font-size: var(--zaobank-font-size-xs);
+}
+.zaobank-profile-report:hover {
+  opacity: 1;
+}
+.zaobank-profile-report .zaobank-btn-icon {
+  width: 14px;
+  height: 14px;
 }
 
 .zaobank-profile-avatar-wrapper {

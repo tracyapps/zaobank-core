@@ -31,6 +31,11 @@ class ZAOBank_Public {
 			false
 		);
 
+		// Enqueue media scripts for profile edit page (image upload)
+		if (is_user_logged_in()) {
+			wp_enqueue_media();
+		}
+
 		wp_localize_script(
 			$this->plugin_name,
 			'zaobank',

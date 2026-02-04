@@ -17,7 +17,20 @@ $initial_status = isset($status) ? $status : 'available';
 <div class="zaobank-container zaobank-jobs-page" data-component="jobs-list">
 
 	<header class="zaobank-page-header">
-		<h1 class="zaobank-page-title"><?php _e('Available Jobs', 'zaobank'); ?></h1>
+		<h1 class="zaobank-page-title"><?php _e('Jobs', 'zaobank'); ?></h1>
+		<nav class="zaobank-subpage-tabs">
+			<ul role="tablist">
+				<li role="tab" class="subpage-tab current-tab">
+					<span>all jobs</span>
+				</li>
+				<li role="tab" class="subpage-tab">
+					<a href="<?php echo esc_url($urls['my_jobs']); ?>">my jobs</a>
+				</li>
+				<li role="tab" class="subpage-tab">
+					<a href="<?php echo esc_url($urls['job_form']); ?>">post a job</a>
+				</li>
+			</ul>
+		</nav>
 	</header>
 
 	<!-- Filters -->

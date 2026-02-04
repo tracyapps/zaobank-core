@@ -50,7 +50,29 @@ class ZAOBank_Helpers {
 	 * Get avatar HTML.
 	 */
 	public static function get_user_avatar($user_id, $size = 48) {
+		// Check ACF profile image first
+		$image_id = get_user_meta($user_id, 'user_profile_image', true);
+		if ($image_id) {
+			$image_url = wp_get_attachment_image_url($image_id, 'thumbnail');
+			if ($image_url) {
+				return '<img src="' . esc_url($image_url) . '" alt="" width="' . esc_attr($size) . '" height="' . esc_attr($size) . '" class="zaobank-avatar">';
+			}
+		}
 		return get_avatar($user_id, $size, '', '', array('class' => 'zaobank-avatar'));
+	}
+
+	/**
+	 * Get user avatar URL (for API responses).
+	 */
+	public static function get_user_avatar_url($user_id, $size = 96) {
+		$image_id = get_user_meta($user_id, 'user_profile_image', true);
+		if ($image_id) {
+			$image_url = wp_get_attachment_image_url($image_id, 'thumbnail');
+			if ($image_url) {
+				return $image_url;
+			}
+		}
+		return get_avatar_url($user_id, array('size' => $size));
 	}
 
 	/**

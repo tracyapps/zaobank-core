@@ -175,9 +175,66 @@
 		initJobsList: function($container) {
 			this.state.filters = {
 				region: '',
-				search: ''
+				search: '',
+				job_types: []
 			};
+			this.loadJobTypes();
+			this.initFilterPanel();
 			this.loadJobs();
+		},
+
+		loadJobTypes: function() {
+			var self = this;
+			this.apiCall('job-types', 'GET', {}, function(response) {
+				var types = response.job_types || [];
+
+				// Populate filter panel checkboxes
+				var $list = $('#zaobank-job-type-list');
+				if ($list.length && types.length) {
+					var html = types.map(function(type) {
+						return '<label class="zaobank-checkbox-label">' +
+							'<input type="checkbox" name="job_type_filter" value="' + type.id + '">' +
+							'<span>' + self.escapeHtml(type.name) + '</span>' +
+							'</label>';
+					}).join('');
+					$list.html(html);
+				}
+
+				// Populate job form checkboxes
+				var $formList = $('#zaobank-job-type-form-list');
+				if ($formList.length && types.length) {
+					var formHtml = types.map(function(type) {
+						return '<label class="zaobank-checkbox-label">' +
+							'<input type="checkbox" name="job_types[]" value="' + type.id + '">' +
+							'<span>' + self.escapeHtml(type.name) + '</span>' +
+							'</label>';
+					}).join('');
+					$formList.html(formHtml);
+				}
+			});
+		},
+
+		initFilterPanel: function() {
+			var self = this;
+
+			$(document).on('click', '#zaobank-filter-toggle', function(e) {
+				e.preventDefault();
+				$('.zaobank-filter-panel').addClass('open');
+				$('.zaobank-filter-panel-overlay').addClass('open');
+			});
+
+			$(document).on('click', '.zaobank-filter-panel-close, .zaobank-filter-panel-overlay', function(e) {
+				e.preventDefault();
+				$('.zaobank-filter-panel').removeClass('open');
+				$('.zaobank-filter-panel-overlay').removeClass('open');
+			});
+
+			$(document).on('change', '[name="job_type_filter"]', function() {
+				self.state.filters.job_types = $('[name="job_type_filter"]:checked').map(function() {
+					return parseInt($(this).val(), 10);
+				}).get();
+				self.loadJobs();
+			});
 		},
 
 		loadJobs: function(append = false) {
@@ -205,6 +262,10 @@
 
 			if (this.state.filters.search) {
 				params.search = this.state.filters.search;
+			}
+
+			if (this.state.filters.job_types && this.state.filters.job_types.length) {
+				params.job_types = this.state.filters.job_types;
 			}
 
 			this.apiCall('jobs', 'GET', params, function(response) {
@@ -263,8 +324,10 @@
 				location: job.location ? this.escapeHtml(job.location) : '',
 				status_class: status.class,
 				status_label: status.label,
+				requester_id: job.requester_id,
 				requester_name: this.escapeHtml(job.requester_name),
 				requester_avatar: job.requester_avatar || this.getDefaultAvatar(),
+				job_types: job.job_types || [],
 				can_claim: canClaim
 			});
 		},
@@ -432,6 +495,7 @@
 
 		initJobForm: function($container) {
 			const jobId = $container.data('job-id');
+			this.loadJobTypes();
 
 			if (jobId) {
 				this.loadJobForEdit(jobId);
@@ -484,7 +548,10 @@
 				preferred_date: $form.find('[name="preferred_date"]').val(),
 				flexible_timing: $form.find('[name="flexible_timing"]').is(':checked'),
 				skills_required: $form.find('[name="skills_required"]').val(),
-				region: $form.find('[name="region"]').val()
+				region: $form.find('[name="region"]').val(),
+				job_types: $form.find('[name="job_types[]"]:checked').map(function() {
+					return parseInt($(this).val(), 10);
+				}).get()
 			};
 
 			const endpoint = isEdit ? 'jobs/' + jobId : 'jobs';
@@ -640,6 +707,44 @@
 
 		initProfileEdit: function($container) {
 			this.loadProfileForEdit();
+			this.initAvatarUpload();
+		},
+
+		initAvatarUpload: function() {
+			var mediaFrame;
+
+			$(document).on('click', '#zaobank-upload-avatar', function(e) {
+				e.preventDefault();
+
+				if (mediaFrame) {
+					mediaFrame.open();
+					return;
+				}
+
+				mediaFrame = wp.media({
+					title: 'Choose Profile Photo',
+					button: { text: 'Use This Photo' },
+					multiple: false,
+					library: { type: 'image' }
+				});
+
+				mediaFrame.on('select', function() {
+					var attachment = mediaFrame.state().get('selection').first().toJSON();
+					var url = attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url;
+					$('#profile-avatar').attr('src', url);
+					$('#profile-image-id').val(attachment.id);
+					$('#zaobank-remove-avatar').show();
+				});
+
+				mediaFrame.open();
+			});
+
+			$(document).on('click', '#zaobank-remove-avatar', function(e) {
+				e.preventDefault();
+				$('#profile-image-id').val('0');
+				$('#profile-avatar').attr('src', ZAOBank.getDefaultAvatar(96));
+				$(this).hide();
+			});
 		},
 
 		loadProfileForEdit: function() {
@@ -654,6 +759,15 @@
 				$form.find('[name="user_availability"]').val(profile.availability || '');
 				$form.find('[name="user_phone"]').val(profile.phone || '');
 				$form.find('[name="user_discord_id"]').val(profile.discord_id || '');
+
+				// Update avatar preview
+				if (profile.avatar_url) {
+					$('#profile-avatar').attr('src', profile.avatar_url);
+				}
+				if (profile.profile_image_id) {
+					$('#profile-image-id').val(profile.profile_image_id);
+					$('#zaobank-remove-avatar').show();
+				}
 
 				if (profile.primary_region && profile.primary_region.id) {
 					$form.find('[name="user_primary_region"]').val(profile.primary_region.id);
@@ -684,6 +798,7 @@
 
 			$button.prop('disabled', true).text('Saving...');
 
+			const profileImageVal = $form.find('[name="user_profile_image"]').val();
 			const data = {
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
@@ -698,6 +813,10 @@
 					return $(this).val();
 				}).get()
 			};
+
+			if (profileImageVal !== '') {
+				data.user_profile_image = parseInt(profileImageVal, 10);
+			}
 
 			this.apiCall('me/profile', 'PUT', data, function(response) {
 				$button.prop('disabled', false).text('Save Changes');
@@ -1272,7 +1391,15 @@
 				const arr = ZAOBank.getNestedValue(data, key);
 				if (!Array.isArray(arr)) return '';
 				return arr.map(function(item) {
-					return content.replace(/\{\{this\}\}/g, ZAOBank.escapeHtml(item));
+					var result = content;
+					if (typeof item === 'object' && item !== null) {
+						// Replace {{this.property}} with item properties
+						result = result.replace(/\{\{this\.(\w+)\}\}/g, function(m, prop) {
+							return item[prop] !== undefined ? ZAOBank.escapeHtml(String(item[prop])) : '';
+						});
+					}
+					result = result.replace(/\{\{this\}\}/g, ZAOBank.escapeHtml(String(item)));
+					return result;
 				}).join('');
 			});
 

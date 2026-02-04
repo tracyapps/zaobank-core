@@ -121,6 +121,7 @@ The plugin creates the following custom tables:
 ### Taxonomies
 
 - **zaobank_region** - Hierarchical regions for filtering and context
+- **zaobank_job_type** - Non-hierarchical job type tags (e.g., gardening, tutoring, tech support)
 
 ## REST API Endpoints
 
@@ -137,6 +138,7 @@ DELETE /jobs/{id}            - Delete job
 POST   /jobs/{id}/claim      - Claim a job
 POST   /jobs/{id}/complete   - Complete job and record exchange
 GET    /jobs/mine            - Get current user's jobs
+GET    /job-types            - List all job type terms
 ```
 
 ### User
@@ -311,6 +313,7 @@ The plugin registers two ACF field groups:
 - Flexible Timing (true/false)
 
 ### User Profile
+- Profile Image (image, return format: ID) - Custom profile photo, replaces Gravatar
 - Skills I Can Offer (textarea)
 - Availability (text)
 - Bio (textarea)
@@ -763,7 +766,8 @@ zaobank-core/
 │       ├── exchanges.php
 │       ├── appreciations.php
 │       └── components/
-│           └── bottom-nav.php
+│           ├── bottom-nav.php
+│           └── subpage-tabs.php
 └── zaobank-core.php
 ```
 
