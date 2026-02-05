@@ -28,8 +28,23 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 				'per_page' => array(
 					'default' => 20,
 					'type' => 'integer'
+				),
+				'filter' => array(
+					'default' => 'all',
+					'type' => 'string',
+					'description' => __('Filter exchanges (all, earned, spent).', 'zaobank'),
+					'validate_callback' => function($value) {
+						return in_array($value, array('all', 'earned', 'spent'), true);
+					}
 				)
 			)
+		));
+
+		// Get people the user has worked with
+		register_rest_route($this->namespace, '/me/worked-with', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'get_worked_with'),
+			'permission_callback' => array($this, 'check_authentication')
 		));
 
 		// Get current user profile
@@ -44,6 +59,23 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'methods' => WP_REST_Server::EDITABLE,
 			'callback' => array($this, 'update_profile'),
 			'permission_callback' => array($this, 'check_authentication')
+		));
+
+		// Search users (members only)
+		register_rest_route($this->namespace, '/users/search', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'search_users'),
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'q' => array(
+					'type' => 'string',
+					'description' => __('Search query for user name or email.', 'zaobank')
+				),
+				'limit' => array(
+					'type' => 'integer',
+					'default' => 10
+				)
+			)
 		));
 
 		// Get user by ID
@@ -84,10 +116,12 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 	public function get_exchanges($request) {
 		$user_id = get_current_user_id();
 		$params = $this->get_pagination_params($request);
+		$filter = $request->get_param('filter') ?: 'all';
 
 		$args = array(
 			'limit' => $params['per_page'],
-			'offset' => ($params['page'] - 1) * $params['per_page']
+			'offset' => ($params['page'] - 1) * $params['per_page'],
+			'type' => $filter
 		);
 
 		$exchanges = ZAOBank_Exchanges::get_user_exchanges($user_id, $args);
@@ -95,12 +129,41 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		// Get total count
 		global $wpdb;
 		$table = ZAOBank_Database::get_exchanges_table();
+		$where_sql = '(provider_user_id = %d OR requester_user_id = %d)';
+		$where_values = array($user_id, $user_id);
+
+		if ($filter === 'earned') {
+			$where_sql = 'provider_user_id = %d';
+			$where_values = array($user_id);
+		} elseif ($filter === 'spent') {
+			$where_sql = 'requester_user_id = %d';
+			$where_values = array($user_id);
+		}
+
 		$total = $wpdb->get_var($wpdb->prepare(
-			"SELECT COUNT(*) FROM $table 
-            WHERE provider_user_id = %d OR requester_user_id = %d",
-			$user_id,
-			$user_id
+			"SELECT COUNT(*) FROM $table WHERE $where_sql",
+			$where_values
 		));
+
+		// Add appreciation flag for current user
+		if (!empty($exchanges)) {
+			$exchange_ids = array_map(function($exchange) {
+				return (int) $exchange['id'];
+			}, $exchanges);
+
+			$app_table = ZAOBank_Database::get_appreciations_table();
+			$placeholders = implode(',', array_fill(0, count($exchange_ids), '%d'));
+
+			$appreciated_ids = $wpdb->get_col($wpdb->prepare(
+				"SELECT exchange_id FROM $app_table WHERE from_user_id = %d AND exchange_id IN ($placeholders)",
+				array_merge(array($user_id), $exchange_ids)
+			));
+
+			$lookup = array_fill_keys(array_map('intval', $appreciated_ids), true);
+			foreach ($exchanges as $index => $exchange) {
+				$exchanges[$index]['has_appreciation'] = isset($lookup[(int) $exchange['id']]);
+			}
+		}
 
 		$response = $this->success_response(array(
 			'exchanges' => $exchanges,
@@ -115,6 +178,18 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		}
 
 		return $response;
+	}
+
+	/**
+	 * Get a summary of people the current user has worked with.
+	 */
+	public function get_worked_with($request) {
+		$user_id = get_current_user_id();
+		$people = ZAOBank_Exchanges::get_worked_with_summary($user_id);
+
+		return $this->success_response(array(
+			'people' => $people
+		));
 	}
 
 	/**
@@ -143,6 +218,17 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 	public function update_profile($request) {
 		$user_id = get_current_user_id();
 		$params = $request->get_params();
+
+		if (isset($params['display_name'])) {
+			$display_name = sanitize_text_field($params['display_name']);
+			if ($display_name !== '') {
+				wp_update_user(array(
+					'ID' => $user_id,
+					'display_name' => $display_name,
+					'nickname' => $display_name
+				));
+			}
+		}
 
 		// Update user meta fields
 		if (isset($params['user_skills'])) {
@@ -195,6 +281,65 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'message' => __('Profile updated successfully', 'zaobank'),
 			'profile' => $profile
 		));
+	}
+
+	/**
+	 * Search verified users for messaging.
+	 */
+	public function search_users($request) {
+		$search = trim(sanitize_text_field((string) $request->get_param('q')));
+		$limit = (int) $request->get_param('limit');
+
+		if ($limit < 1) {
+			$limit = 10;
+		}
+		if ($limit > 25) {
+			$limit = 25;
+		}
+
+		if (strlen($search) < 2) {
+			return $this->success_response(array('users' => array()));
+		}
+
+		$current_user_id = get_current_user_id();
+		$roles = get_option('zaobank_message_search_roles', array('member'));
+		$roles = apply_filters('zaobank_message_search_roles', $roles);
+		$valid_roles = array();
+		foreach ((array) $roles as $role) {
+			if (wp_roles()->is_role($role)) {
+				$valid_roles[] = $role;
+			}
+		}
+
+		if (empty($roles) || empty($valid_roles)) {
+			return $this->success_response(array('users' => array()));
+		}
+
+		global $wpdb;
+
+		$args = array(
+			'search' => '*' . $wpdb->esc_like($search) . '*',
+			'search_columns' => array('user_login', 'user_nicename', 'display_name', 'user_email'),
+			'number' => $limit,
+			'orderby' => 'display_name',
+			'order' => 'ASC',
+			'exclude' => array($current_user_id)
+		);
+
+		$args['role__in'] = $valid_roles;
+
+		$query = new WP_User_Query($args);
+		$users = array();
+
+		foreach ($query->get_results() as $user) {
+			$users[] = array(
+				'id' => $user->ID,
+				'name' => $user->display_name,
+				'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 40)
+			);
+		}
+
+		return $this->success_response(array('users' => $users));
 	}
 
 	/**
@@ -275,6 +420,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		$profile = array(
 			'id' => $user->ID,
 			'name' => $user->display_name,
+			'display_name' => $user->display_name,
 			'email' => $public_only ? null : $user->user_email,
 			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 96),
 			'skills' => get_user_meta($user->ID, 'user_skills', true),

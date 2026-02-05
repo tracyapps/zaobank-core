@@ -37,12 +37,27 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 				<!-- Avatar Preview -->
 				<div class="zaobank-form-group zaobank-avatar-section">
 					<div class="zaobank-avatar-preview">
-						<img src="<?php echo esc_url(get_avatar_url($user_id, array('size' => 96))); ?>" alt="" class="zaobank-avatar-large" id="profile-avatar">
+						<img src="<?php echo esc_url(ZAOBank_Helpers::get_user_avatar_url($user_id, 96)); ?>" alt="" class="zaobank-avatar-large" id="profile-avatar">
 					</div>
-					<p class="zaobank-form-hint">
-						<?php _e('Avatar is managed through Gravatar', 'zaobank'); ?>
-						<a href="https://gravatar.com" target="_blank" rel="noopener"><?php _e('Change on Gravatar', 'zaobank'); ?></a>
-					</p>
+					<input type="hidden" name="user_profile_image" id="profile-image-id" value="">
+					<button type="button" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm" id="zaobank-upload-avatar">
+						<?php _e('Change Photo', 'zaobank'); ?>
+					</button>
+					<button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-btn-sm" id="zaobank-remove-avatar" style="display:none;">
+						<?php _e('Remove Photo', 'zaobank'); ?>
+					</button>
+				</div>
+
+				<!-- Display Name -->
+				<div class="zaobank-form-group">
+					<label for="profile-display-name" class="zaobank-label">
+						<?php _e('Display Name', 'zaobank'); ?>
+					</label>
+					<input type="text"
+					       id="profile-display-name"
+					       name="display_name"
+					       class="zaobank-input"
+					       placeholder="<?php esc_attr_e('How your name appears to others', 'zaobank'); ?>">
 				</div>
 
 				<!-- Bio -->

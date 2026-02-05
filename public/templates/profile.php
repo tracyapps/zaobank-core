@@ -33,9 +33,12 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 <script type="text/template" id="zaobank-profile-template">
 <div class="zaobank-profile-header-section">
 	<div class="zaobank-profile-avatar-wrapper">
-		<img src="{{avatar_url}}" alt="{{name}}" class="zaobank-profile-avatar">
+		<img src="{{avatar_url}}" alt="{{display_name}}" class="zaobank-profile-avatar">
 	</div>
-	<h1 class="zaobank-profile-name">{{name}}</h1>
+	<h1 class="zaobank-profile-name">{{display_name}}</h1>
+	{{#if display_name}}
+	<p class="zaobank-profile-display-name"><?php _e('Display name', 'zaobank'); ?>: {{display_name}}</p>
+	{{/if}}
 	<p class="zaobank-profile-since"><?php _e('Member since', 'zaobank'); ?> {{member_since}}</p>
 
 	{{#if primary_region}}

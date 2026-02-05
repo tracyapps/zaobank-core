@@ -53,13 +53,15 @@
 
 			// Appreciation
 			$(document).on('click', '.zaobank-give-appreciation', this.handleGiveAppreciation.bind(this));
+			$(document).on('click', '.zaobank-cancel-appreciation', this.handleCancelAppreciation.bind(this));
+			$(document).on('click', '.zaobank-submit-appreciation', this.handleSubmitAppreciation.bind(this));
+			$(document).on('click', '.zaobank-save-note', this.handleSaveNote.bind(this));
 
 			// Message actions
 			$(document).on('click', '.zaobank-mark-read', this.handleMarkConversationRead.bind(this));
 			$(document).on('click', '.zaobank-archive-conversation', this.handleArchiveConversation.bind(this));
+			$(document).on('input', '[data-action="message-user-search"]', this.debounce(this.handleMessageUserSearch.bind(this), 250));
 
-			// Private notes
-			$(document).on('click', '.zaobank-add-notes', this.handleAddNotes.bind(this));
 		},
 
 		initComponents: function() {
@@ -151,7 +153,13 @@
 
 				let html = '';
 				response.exchanges.forEach(function(exchange) {
-					const isEarned = exchange.provider_user_id === zaobank.userId;
+					const currentUserId = Number(zaobank.userId || 0);
+					const providerId = Number(exchange.provider_id || exchange.provider_user_id || 0);
+					const requesterId = Number(exchange.requester_id || exchange.requester_user_id || 0);
+					const isEarned = providerId === currentUserId;
+					const otherUserName = isEarned
+						? (exchange.requester_name || exchange.other_user_name || 'User')
+						: (exchange.provider_name || exchange.other_user_name || 'User');
 					html += `
 						<div class="zaobank-activity-item">
 							<div class="zaobank-activity-icon">
@@ -165,7 +173,7 @@
 							<div class="zaobank-activity-content">
 								<p class="zaobank-activity-text">
 									${isEarned ? 'Earned' : 'Spent'} <strong>${exchange.hours} hrs</strong>
-									${isEarned ? 'from' : 'to'} ${ZAOBank.escapeHtml(exchange.other_user_name || 'User')}
+									${isEarned ? 'from' : 'to'} ${ZAOBank.escapeHtml(otherUserName)}
 								</p>
 								<span class="zaobank-activity-time">${ZAOBank.formatDate(exchange.created_at)}</span>
 							</div>
@@ -323,7 +331,10 @@
 			}
 
 			const status = this.getJobStatus(job);
-			const canClaim = zaobank.isLoggedIn && !job.provider_id && job.requester_id !== zaobank.userId;
+			const currentUserId = Number(zaobank.userId || 0);
+			const requesterId = Number(job.requester_id || 0);
+			const providerId = Number(job.provider_id || 0);
+			const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
 
 			return this.renderTemplate(template, {
 				id: job.id,
@@ -343,7 +354,10 @@
 
 		renderJobCardFallback: function(job) {
 			const status = this.getJobStatus(job);
-			const canClaim = zaobank.isLoggedIn && !job.provider_id && job.requester_id !== zaobank.userId;
+			const currentUserId = Number(zaobank.userId || 0);
+			const requesterId = Number(job.requester_id || 0);
+			const providerId = Number(job.provider_id || 0);
+			const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
 
 			return `
 				<article class="zaobank-card zaobank-job-card" data-job-id="${job.id}">
@@ -422,11 +436,16 @@
 				}
 
 				const status = ZAOBank.getJobStatus(job);
-				const canClaim = zaobank.isLoggedIn && !job.provider_id && job.requester_id !== zaobank.userId;
-				const canComplete = zaobank.isLoggedIn && job.provider_id && !job.completed_at && job.requester_id === zaobank.userId;
-				const canEdit = zaobank.isLoggedIn && job.requester_id === zaobank.userId && !job.provider_id;
-				const canRelease = zaobank.isLoggedIn && job.provider_id == zaobank.userId && !job.completed_at;
-				const canMessage = zaobank.isLoggedIn && job.requester_id !== zaobank.userId;
+				const currentUserId = Number(zaobank.userId || 0);
+				const requesterId = Number(job.requester_id || 0);
+				const providerId = Number(job.provider_id || 0);
+				const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
+				const canComplete = zaobank.isLoggedIn && providerId && !job.completed_at && requesterId === currentUserId;
+				const canEdit = zaobank.isLoggedIn && requesterId === currentUserId && !providerId;
+				const canRelease = zaobank.isLoggedIn && providerId === currentUserId && !job.completed_at;
+				const canMessage = zaobank.isLoggedIn && requesterId !== currentUserId;
+				const canReport = requesterId !== currentUserId;
+				const showFeedbackPrompt = !!job.completed_at && requesterId === currentUserId && providerId;
 
 				const html = ZAOBank.renderTemplate(template, {
 					id: job.id,
@@ -442,14 +461,17 @@
 					requester_name: ZAOBank.escapeHtml(job.requester_name),
 					requester_avatar: job.requester_avatar || ZAOBank.getDefaultAvatar(),
 					requester_since: ZAOBank.formatDate(job.requester_registered, true),
-					provider_id: job.provider_id || '',
+					provider_id: providerId || '',
 					provider_name: job.provider_name ? ZAOBank.escapeHtml(job.provider_name) : '',
 					provider_avatar: job.provider_avatar || ZAOBank.getDefaultAvatar(),
+					exchange_id: job.exchange_id || '',
 					can_claim: canClaim,
 					can_complete: canComplete,
 					can_edit: canEdit,
 					can_release: canRelease,
-					can_message: canMessage
+					can_message: canMessage,
+					can_report: canReport,
+					show_feedback_prompt: showFeedbackPrompt
 				});
 
 				$content.html(html);
@@ -484,7 +506,13 @@
 			const $button = $(e.currentTarget);
 			const jobId = $button.data('job-id');
 
+			if ($button.data('processing')) {
+				return;
+			}
+			$button.data('processing', true);
+
 			if (!confirm('Mark this job as complete? This will record the time exchange.')) {
+				$button.data('processing', false);
 				return;
 			}
 
@@ -492,8 +520,12 @@
 			this.apiCall('jobs/' + jobId, 'GET', {}, function(job) {
 				const currentHours = job.hours || 1;
 				const hoursInput = prompt('Adjust hours if needed (current: ' + currentHours + '):', currentHours);
+				const providerId = job.provider_id;
 
-				if (hoursInput === null) return;
+				if (hoursInput === null) {
+					$button.data('processing', false);
+					return;
+				}
 
 				const hours = parseFloat(hoursInput) || currentHours;
 
@@ -501,43 +533,36 @@
 
 				ZAOBank.apiCall('jobs/' + jobId + '/complete', 'POST', { hours: hours }, function(response) {
 					ZAOBank.showToast('Job completed! Exchange recorded.', 'success');
+					const exchangeId = response.exchange && response.exchange.id ? response.exchange.id : '';
+					const $actions = $button.closest('.zaobank-job-actions');
+					const exchangesUrl = $('.zaobank-job-single').data('exchanges-url');
+					const appreciationsUrl = $('.zaobank-job-single').data('appreciations-url');
 
-					// Appreciation prompt
-					const providerId = job.provider_id;
-					const tags = ['helpful', 'reliable', 'kind', 'skilled', 'punctual'];
-					const tag = prompt('Add appreciation tag (' + tags.join(', ') + ') or leave blank:');
+					$button.remove();
 
-					if (tag && tag.trim()) {
-						const message = prompt('Add appreciation message (optional):') || '';
-
-						ZAOBank.apiCall('appreciations', 'POST', {
-							exchange_id: response.exchange ? response.exchange.id : null,
-							to_user_id: providerId,
-							tag_slug: tag.toLowerCase().trim(),
-							message: message,
-							is_public: true
-						}, function() {
-							ZAOBank.showToast('Appreciation sent!', 'success');
-						});
+					if (exchangeId && exchangesUrl) {
+						const feedbackLink = `
+							<a href="${exchangesUrl}?exchange_id=${exchangeId}" class="zaobank-btn zaobank-btn-primary zaobank-btn-lg zaobank-btn-block zaobank-job-feedback">
+								Leave Appreciation
+							</a>
+						`;
+						$actions.prepend(feedbackLink);
 					}
 
-					// Private notes prompt
-					const notes = prompt('Add private notes about this person (optional, only visible to you):');
-
-					if (notes && notes.trim()) {
-						ZAOBank.apiCall('me/notes', 'POST', {
-							subject_user_id: providerId,
-							tag_slug: 'job-completion',
-							note: notes
-						});
+					if (appreciationsUrl) {
+						const viewLink = `
+							<a href="${appreciationsUrl}?tab=given" class="zaobank-btn zaobank-btn-outline zaobank-btn-block zaobank-job-feedback-view">
+								View Appreciations
+							</a>
+						`;
+						$actions.append(viewLink);
 					}
-
-					setTimeout(function() {
-						location.reload();
-					}, 1500);
 				}, function() {
 					$button.prop('disabled', false).text('Mark Complete');
+					$button.data('processing', false);
 				});
+			}, function() {
+				$button.data('processing', false);
 			});
 		},
 
@@ -694,12 +719,12 @@
 				const template = $('#zaobank-my-job-card-template').html();
 				const html = jobs.map(function(job) {
 					const status = ZAOBank.getJobStatus(job);
-					const canComplete = job.provider_id && !job.completed_at && job.requester_id === zaobank.userId;
-					const canEdit = job.requester_id === zaobank.userId && !job.provider_id;
-					const canRelease = job.provider_id == zaobank.userId && !job.completed_at;
-					const canAddNotes = job.completed_at && !canEdit;
-					const notesUserId = job.requester_id === zaobank.userId ? job.provider_id : job.requester_id;
-
+					const currentUserId = Number(zaobank.userId || 0);
+					const requesterId = Number(job.requester_id || 0);
+					const providerId = Number(job.provider_id || 0);
+					const canComplete = providerId && !job.completed_at && requesterId === currentUserId;
+					const canEdit = requesterId === currentUserId && !providerId;
+					const canRelease = providerId === currentUserId && !job.completed_at;
 					return ZAOBank.renderTemplate(template, {
 						id: job.id,
 						title: ZAOBank.escapeHtml(job.title),
@@ -711,9 +736,7 @@
 						provider_avatar: job.provider_avatar || ZAOBank.getDefaultAvatar(),
 						can_complete: canComplete,
 						can_edit: canEdit,
-						can_release: canRelease,
-						can_add_notes: canAddNotes,
-						notes_user_id: notesUserId
+						can_release: canRelease
 					});
 				}).join('');
 
@@ -751,7 +774,8 @@
 
 				const html = ZAOBank.renderTemplate(template, {
 					id: profile.id,
-					name: ZAOBank.escapeHtml(profile.name),
+					name: ZAOBank.escapeHtml(profile.name || profile.display_name || ''),
+					display_name: ZAOBank.escapeHtml(profile.display_name || profile.name || ''),
 					avatar_url: profile.avatar_url || ZAOBank.getDefaultAvatar(96),
 					member_since: ZAOBank.formatDate(profile.registered, true),
 					bio: profile.bio ? ZAOBank.escapeHtml(profile.bio) : '',
@@ -856,6 +880,7 @@
 				$form.attr('data-loading', 'false');
 
 				const profile = response.profile || response;
+				$form.find('[name="display_name"]').val(profile.display_name || profile.name || '');
 				$form.find('[name="user_bio"]').val(profile.bio || '');
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
@@ -902,6 +927,7 @@
 
 			const profileImageVal = $form.find('[name="user_profile_image"]').val();
 			const data = {
+				display_name: $form.find('[name="display_name"]').val(),
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
@@ -923,6 +949,11 @@
 			this.apiCall('me/profile', 'PUT', data, function(response) {
 				$button.prop('disabled', false).text('Save Changes');
 				ZAOBank.showToast('Profile updated!', 'success');
+
+				const profile = response.profile || response;
+				if (profile && profile.avatar_url) {
+					$('.zaobank-header-avatar img').attr('src', profile.avatar_url);
+				}
 			}, function() {
 				$button.prop('disabled', false).text('Save Changes');
 			});
@@ -938,6 +969,15 @@
 				this.loadJobUpdates();
 			} else {
 				this.loadConversations();
+			}
+
+			this.initMessageSearch();
+		},
+
+		initMessageSearch: function() {
+			const $results = $('.zaobank-message-search-results');
+			if ($results.length) {
+				$results.empty();
 			}
 		},
 
@@ -982,26 +1022,42 @@
 			const convMap = {};
 
 			messages.forEach(function(msg) {
-				const otherId = msg.from_user_id === zaobank.userId ? msg.to_user_id : msg.from_user_id;
-				const otherName = msg.from_user_id === zaobank.userId ? msg.to_user_name : msg.from_user_name;
+				const currentUserId = Number(zaobank.userId || 0);
+				const fromId = Number(msg.from_user_id || 0);
+				const toId = Number(msg.to_user_id || 0);
+				const otherId = fromId === currentUserId ? toId : fromId;
+				const otherName = fromId === currentUserId ? msg.to_user_name : msg.from_user_name;
+				const otherAvatar = fromId === currentUserId ? msg.to_user_avatar : msg.from_user_avatar;
+				const messageTime = ZAOBank.parseDate(msg.created_at);
 
 				if (!convMap[otherId]) {
 					convMap[otherId] = {
 						other_user_id: otherId,
 						other_user_name: otherName,
-						other_user_avatar: null,
+						other_user_avatar: otherAvatar || null,
 						last_message: msg.message,
 						last_message_time: msg.created_at,
 						unread_count: 0
 					};
+				} else {
+					const existingTime = ZAOBank.parseDate(convMap[otherId].last_message_time);
+					if (messageTime > existingTime) {
+						convMap[otherId].last_message = msg.message;
+						convMap[otherId].last_message_time = msg.created_at;
+					}
+					if (!convMap[otherId].other_user_avatar && otherAvatar) {
+						convMap[otherId].other_user_avatar = otherAvatar;
+					}
 				}
 
-				if (!msg.is_read && msg.to_user_id === zaobank.userId) {
+				if (!msg.is_read && toId === currentUserId) {
 					convMap[otherId].unread_count++;
 				}
 			});
 
-			return Object.values(convMap);
+			return Object.values(convMap).sort(function(a, b) {
+				return ZAOBank.parseDate(b.last_message_time) - ZAOBank.parseDate(a.last_message_time);
+			});
 		},
 
 		loadJobUpdates: function() {
@@ -1023,11 +1079,14 @@
 
 				const template = $('#zaobank-job-update-template').html();
 				const html = messages.map(function(msg) {
-					const otherId = msg.from_user_id === zaobank.userId ? msg.to_user_id : msg.from_user_id;
-					const otherName = msg.from_user_id === zaobank.userId ? msg.to_user_name : msg.from_user_name;
+					const currentUserId = Number(zaobank.userId || 0);
+					const fromId = Number(msg.from_user_id || 0);
+					const otherId = fromId === currentUserId ? msg.to_user_id : msg.from_user_id;
+					const otherName = fromId === currentUserId ? msg.to_user_name : msg.from_user_name;
+					const otherAvatar = fromId === currentUserId ? msg.to_user_avatar : msg.from_user_avatar;
 
 					return ZAOBank.renderTemplate(template, {
-						other_user_avatar: ZAOBank.getDefaultAvatar(),
+						other_user_avatar: otherAvatar || ZAOBank.getDefaultAvatar(),
 						other_user_name: ZAOBank.escapeHtml(otherName),
 						message: ZAOBank.escapeHtml(msg.message),
 						time: ZAOBank.formatRelativeTime(msg.created_at),
@@ -1047,11 +1106,14 @@
 			e.stopPropagation();
 			const $button = $(e.currentTarget);
 			const userId = $button.data('user-id');
+			const $badge = $button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-badge');
+			const badgeCount = parseInt($badge.attr('data-unread-count') || $badge.text().replace('+', ''), 10) || 0;
 
 			this.apiCall('me/messages/read-all', 'POST', { with_user: userId }, function() {
 				$button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-item').removeClass('unread');
 				$button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-badge').remove();
 				$button.remove();
+				ZAOBank.updateUnreadBadge(-badgeCount);
 				ZAOBank.showToast('Marked as read', 'success');
 			});
 		},
@@ -1061,6 +1123,8 @@
 			e.stopPropagation();
 			const $button = $(e.currentTarget);
 			const userId = $button.data('user-id');
+			const $badge = $button.closest('.zaobank-conversation-item-wrapper').find('.zaobank-conversation-badge');
+			const badgeCount = parseInt($badge.attr('data-unread-count') || $badge.text().replace('+', ''), 10) || 0;
 
 			if (!confirm('Archive this conversation? It will be hidden from your list.')) {
 				return;
@@ -1070,29 +1134,8 @@
 				$button.closest('.zaobank-conversation-item-wrapper').fadeOut(300, function() {
 					$(this).remove();
 				});
+				ZAOBank.updateUnreadBadge(-badgeCount);
 				ZAOBank.showToast('Conversation archived', 'success');
-			});
-		},
-
-		handleAddNotes: function(e) {
-			e.preventDefault();
-			const $button = $(e.currentTarget);
-			const userId = $button.data('user-id');
-
-			const tags = ['easy-to-work-with', 'clear-communicator', 'respectful', 'on-time', 'flexible-schedule', 'needs-clear-instructions'];
-			const tag = prompt('Choose a tag for your note:\n\n' + tags.join(', '));
-
-			if (!tag) return;
-
-			const note = prompt('Add your note (optional):') || '';
-
-			this.apiCall('me/notes', 'POST', {
-				subject_user_id: userId,
-				tag_slug: tag.toLowerCase().trim(),
-				note: note
-			}, function() {
-				ZAOBank.showToast('Note saved', 'success');
-				$button.prop('disabled', true).text('Note Added');
 			});
 		},
 
@@ -1115,34 +1158,42 @@
 				$list.attr('data-loading', 'false');
 
 				const messages = response.messages || [];
+				const sortedMessages = messages.slice().sort(function(a, b) {
+					return ZAOBank.parseDate(a.created_at) - ZAOBank.parseDate(b.created_at);
+				});
 
-				if (messages.length === 0) {
+				if (sortedMessages.length === 0) {
 					$list.html('<p class="zaobank-loading-placeholder" style="text-align: center;">Start a conversation!</p>');
 					return;
 				}
 
 				const template = $('#zaobank-message-template').html();
-				const html = messages.map(function(msg) {
+				const html = sortedMessages.map(function(msg) {
+					const isOwn = Number(msg.from_user_id || 0) === Number(zaobank.userId || 0);
 					return ZAOBank.renderTemplate(template, {
 						id: msg.id,
 						message: ZAOBank.escapeHtml(msg.message),
 						time: ZAOBank.formatTime(msg.created_at),
-						is_own: msg.from_user_id === zaobank.userId
+						is_own: isOwn
 					});
 				}).join('');
 
 				$list.html(html);
 
+				const currentUserId = Number(zaobank.userId || 0);
+				const unreadCount = sortedMessages.filter(function(msg) {
+					return !msg.is_read && Number(msg.to_user_id || 0) === currentUserId;
+				}).length;
+
+				if (unreadCount > 0) {
+					ZAOBank.apiCall('me/messages/read-all', 'POST', { with_user: userId }, function() {
+						ZAOBank.updateUnreadBadge(-unreadCount);
+					});
+				}
+
 				// Scroll to bottom
 				const $container = $('.zaobank-messages-container');
 				$container.scrollTop($container[0].scrollHeight);
-
-				// Mark as read
-				messages.forEach(function(msg) {
-					if (!msg.is_read && msg.to_user_id === zaobank.userId) {
-						ZAOBank.apiCall('messages/' + msg.id + '/read', 'POST', {});
-					}
-				});
 			}, function() {
 				$list.attr('data-loading', 'false');
 			});
@@ -1195,6 +1246,42 @@
 			});
 		},
 
+		handleMessageUserSearch: function(e) {
+			const $input = $(e.currentTarget);
+			const query = $input.val().trim();
+			const $results = $('.zaobank-message-search-results');
+
+			if (query.length < 2) {
+				$results.empty();
+				return;
+			}
+
+			$results.attr('data-loading', 'true');
+
+			this.apiCall('users/search', 'GET', { q: query }, function(response) {
+				$results.attr('data-loading', 'false');
+				const users = response.users || [];
+
+				if (!users.length) {
+					$results.html('<p class="zaobank-empty-hint">No members found.</p>');
+					return;
+				}
+
+				const template = $('#zaobank-message-search-item-template').html();
+				const html = users.map(function(user) {
+					return ZAOBank.renderTemplate(template, {
+						id: user.id,
+						name: ZAOBank.escapeHtml(user.name),
+						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(40)
+					});
+				}).join('');
+
+				$results.html(html);
+			}, function() {
+				$results.attr('data-loading', 'false');
+			});
+		},
+
 		// =========================================================================
 		// Exchanges
 		// =========================================================================
@@ -1202,6 +1289,7 @@
 		initExchanges: function($container) {
 			this.loadUserBalance();
 			this.loadExchanges();
+			this.loadWorkedWith();
 		},
 
 		loadExchanges: function(filter = 'all', append = false) {
@@ -1234,8 +1322,22 @@
 				$empty.hide();
 
 				const template = $('#zaobank-exchange-item-template').html();
+				const appreciationTags = ZAOBank.getAppreciationTags();
+				const hasAppreciationTags = appreciationTags.length > 0;
+				const highlightExchangeId = ZAOBank.getQueryParam('exchange_id');
+
 				const html = exchanges.map(function(exchange) {
-					const isEarned = exchange.provider_user_id === zaobank.userId;
+					const currentUserId = Number(zaobank.userId || 0);
+					const providerId = Number(exchange.provider_id || exchange.provider_user_id || 0);
+					const requesterId = Number(exchange.requester_id || exchange.requester_user_id || 0);
+					const isEarned = providerId === currentUserId;
+					const otherUserId = isEarned ? requesterId : providerId;
+					const otherUserName = isEarned
+						? (exchange.requester_name || exchange.other_user_name || 'User')
+						: (exchange.provider_name || exchange.other_user_name || 'User');
+					const otherUserAvatar = isEarned
+						? (exchange.requester_avatar || ZAOBank.getDefaultAvatar(24))
+						: (exchange.provider_avatar || ZAOBank.getDefaultAvatar(24));
 
 					return ZAOBank.renderTemplate(template, {
 						id: exchange.id,
@@ -1244,11 +1346,14 @@
 						hours: exchange.hours,
 						is_earned: isEarned,
 						type: isEarned ? 'earned' : 'spent',
-						other_user_id: isEarned ? exchange.requester_user_id : exchange.provider_user_id,
-						other_user_name: ZAOBank.escapeHtml(exchange.other_user_name || 'User'),
-						other_user_avatar: ZAOBank.getDefaultAvatar(),
+						other_user_id: otherUserId,
+						other_user_name: ZAOBank.escapeHtml(otherUserName),
+						other_user_avatar: otherUserAvatar,
 						date: ZAOBank.formatDate(exchange.created_at),
-						has_appreciation: exchange.has_appreciation
+						has_appreciation: exchange.has_appreciation,
+						appreciation_status_hidden: exchange.has_appreciation ? '' : 'hidden',
+						has_appreciation_tags: hasAppreciationTags,
+						appreciation_tags: appreciationTags
 					});
 				}).join('');
 
@@ -1263,6 +1368,68 @@
 				} else {
 					$loadMore.hide();
 				}
+
+				if (highlightExchangeId) {
+					const $highlightCard = $list.find(`.zaobank-exchange-card[data-exchange-id="${highlightExchangeId}"]`);
+					if ($highlightCard.length) {
+						$highlightCard[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+						if ($highlightCard.find('.zaobank-exchange-actions').length) {
+							ZAOBank.openAppreciationForm($highlightCard);
+						}
+					}
+				}
+			}, function() {
+				$list.attr('data-loading', 'false');
+			});
+		},
+
+		loadWorkedWith: function() {
+			const $list = $('.zaobank-worked-with-list');
+			const $empty = $('[data-empty="worked-with"]');
+
+			if (!$list.length) return;
+
+			this.apiCall('me/worked-with', 'GET', {}, function(response) {
+				$list.attr('data-loading', 'false');
+
+				const people = response.people || [];
+
+				if (people.length === 0) {
+					$list.empty();
+					$empty.show();
+					return;
+				}
+
+				$empty.hide();
+
+				const template = $('#zaobank-worked-with-item-template').html();
+				const noteTags = ZAOBank.getPrivateNoteTags();
+				const hasNoteTags = noteTags.length > 0;
+
+				const html = people.map(function(person) {
+					const latestNote = person.latest_note || null;
+					const latestTag = latestNote ? latestNote.tag_slug : '';
+					const latestText = latestNote ? latestNote.note : '';
+
+					return ZAOBank.renderTemplate(template, {
+						other_user_id: person.other_user_id,
+						other_user_name: ZAOBank.escapeHtml(person.other_user_name || 'User'),
+						other_user_avatar: person.other_user_avatar || ZAOBank.getDefaultAvatar(48),
+						total_exchanges: person.total_exchanges || 0,
+						total_hours: person.total_hours || 0,
+						jobs_provided: person.jobs_provided || 0,
+						jobs_received: person.jobs_received || 0,
+						last_exchange_at: person.last_exchange_at ? ZAOBank.formatDate(person.last_exchange_at) : '',
+						has_latest_note: !!latestNote,
+						latest_note_tag: latestTag ? ZAOBank.escapeHtml(latestTag) : '',
+						latest_note_tag_label: latestTag ? ZAOBank.escapeHtml(ZAOBank.formatTagLabel(latestTag)) : '',
+						latest_note_text: latestText ? ZAOBank.escapeHtml(latestText) : '',
+						has_note_tags: hasNoteTags,
+						note_tags: noteTags
+					});
+				}).join('');
+
+				$list.html(html);
 			}, function() {
 				$list.attr('data-loading', 'false');
 			});
@@ -1274,7 +1441,15 @@
 
 		initAppreciations: function($container) {
 			const userId = $container.data('user-id');
-			this.loadAppreciations(userId, 'received');
+			const initialTab = ZAOBank.getQueryParam('tab') === 'given' ? 'given' : 'received';
+			this.loadAppreciations(userId, initialTab);
+
+			if (initialTab === 'given') {
+				const $tab = $container.find(`.zaobank-tab[data-tab="${initialTab}"]`);
+				$tab.addClass('active').siblings('.zaobank-tab').removeClass('active');
+				$container.find('.zaobank-tab-panel').removeClass('active');
+				$container.find(`[data-panel="${initialTab}"]`).addClass('active');
+			}
 		},
 
 		loadAppreciations: function(userId, type) {
@@ -1323,7 +1498,7 @@
 					return ZAOBank.renderTemplate(template, {
 						from_user_id: app.from_user_id,
 						from_user_name: ZAOBank.escapeHtml(app.from_user_name || 'User'),
-						from_user_avatar: ZAOBank.getDefaultAvatar(),
+						from_user_avatar: app.from_user_avatar || ZAOBank.getDefaultAvatar(),
 						tag_slug: app.tag_slug || '',
 						tag_label: app.tag_slug ? ZAOBank.escapeHtml(app.tag_slug) : '',
 						message: app.message ? ZAOBank.escapeHtml(app.message) : '',
@@ -1340,33 +1515,111 @@
 			});
 		},
 
+		openAppreciationForm: function($card) {
+			$card.find('.zaobank-exchange-actions').hide();
+			$card.find('.zaobank-appreciation-form').removeAttr('hidden');
+		},
+
 		handleGiveAppreciation: function(e) {
 			e.preventDefault();
 			const $button = $(e.currentTarget);
-			const exchangeId = $button.data('exchange-id');
-			const toUserId = $button.data('user-id');
+			const $card = $button.closest('.zaobank-exchange-card');
+			ZAOBank.openAppreciationForm($card);
+		},
 
-			// Simple prompt for now - could be enhanced with a modal
-			const tags = ['helpful', 'reliable', 'kind', 'skilled', 'punctual'];
-			const tag = prompt('Choose a tag for your appreciation:\n\n' + tags.join(', '));
+		handleCancelAppreciation: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-exchange-card');
+			const $form = $card.find('.zaobank-appreciation-form');
+			$form.find('input[type="checkbox"]').prop('checked', false);
+			$form.find('textarea').val('');
+			$form.attr('hidden', true);
+			$card.find('.zaobank-exchange-actions').show();
+		},
 
-			if (!tag) return;
+		handleSubmitAppreciation: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const $form = $button.closest('.zaobank-appreciation-form');
+			const exchangeId = $form.data('exchange-id');
+			const toUserId = $form.data('user-id');
+			const message = $form.find('[name="appreciation_message"]').val().trim();
+			const tags = $form.find('[name="appreciation_tags[]"]:checked').map(function() {
+				return $(this).val();
+			}).get();
 
-			const message = prompt('Add an optional message (or leave blank):') || '';
+			if (!tags.length) {
+				ZAOBank.showToast('Select at least one appreciation tag.', 'error');
+				return;
+			}
 
+			if ($form.data('processing')) {
+				return;
+			}
+
+			$form.data('processing', true);
 			$button.prop('disabled', true).text('Sending...');
 
-			this.apiCall('appreciations', 'POST', {
-				exchange_id: exchangeId,
-				to_user_id: toUserId,
-				tag_slug: tag.toLowerCase().trim(),
-				message: message,
-				is_public: true
-			}, function(response) {
-				ZAOBank.showToast('Appreciation sent!', 'success');
-				$button.closest('.zaobank-exchange-actions').remove();
+			const uniqueTags = Array.from(new Set(tags.map(function(tag) {
+				return String(tag).toLowerCase().trim();
+			})));
+
+			const sendNext = function(index) {
+				if (index >= uniqueTags.length) {
+					ZAOBank.showToast('Appreciation sent!', 'success');
+					const $card = $form.closest('.zaobank-exchange-card');
+					$card.find('[data-role="appreciation-status"]').removeAttr('hidden');
+					$card.find('.zaobank-exchange-actions, .zaobank-appreciation-form').remove();
+					$form.data('processing', false);
+					return;
+				}
+
+				ZAOBank.apiCall('appreciations', 'POST', {
+					exchange_id: exchangeId,
+					to_user_id: toUserId,
+					tag_slug: uniqueTags[index],
+					message: message,
+					is_public: true
+				}, function() {
+					sendNext(index + 1);
+				}, function() {
+					$button.prop('disabled', false).text('Send Appreciation');
+					$form.data('processing', false);
+				});
+			};
+
+			sendNext(0);
+		},
+
+		handleSaveNote: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-worked-with-card');
+			const userId = $card.data('user-id');
+			const tag = $card.find('[name="note_tag"]').val();
+			const note = $card.find('[name="note_text"]').val().trim();
+
+			if (!tag) {
+				ZAOBank.showToast('Select a note tag first.', 'error');
+				return;
+			}
+
+			$button.prop('disabled', true).text('Saving...');
+
+			this.apiCall('me/notes', 'POST', {
+				subject_user_id: userId,
+				tag_slug: String(tag).toLowerCase().trim(),
+				note: note
 			}, function() {
-				$button.prop('disabled', false).text('Give Appreciation');
+				ZAOBank.showToast('Note saved', 'success');
+				$button.prop('disabled', false).text('Save Note');
+				$card.find('[data-role="latest-note-tag"]').text(ZAOBank.formatTagLabel(tag));
+				$card.find('[data-role="latest-note-text"]').text(note ? note : '');
+				$card.find('[data-role="latest-note-wrapper"]').removeAttr('hidden');
+				$card.find('[name="note_text"]').val('');
+			}, function() {
+				$button.prop('disabled', false).text('Save Note');
 			});
 		},
 
@@ -1622,6 +1875,71 @@
 		// Utility Functions
 		// =========================================================================
 
+		parseDate: function(dateString) {
+			if (!dateString) return new Date(0);
+			return new Date(String(dateString).replace(' ', 'T'));
+		},
+
+		formatTagLabel: function(tag) {
+			if (!tag) return '';
+			return String(tag)
+				.replace(/[_-]+/g, ' ')
+				.replace(/\b\w/g, function(char) {
+					return char.toUpperCase();
+				});
+		},
+
+		getAppreciationTags: function() {
+			const rawTags = Array.isArray(zaobank.appreciationTags) ? zaobank.appreciationTags : [];
+			const uniqueTags = Array.from(new Set(rawTags.map(function(tag) {
+				return String(tag);
+			})));
+			return uniqueTags.map(function(tag) {
+				return {
+					slug: String(tag),
+					label: ZAOBank.formatTagLabel(tag)
+				};
+			});
+		},
+
+		getPrivateNoteTags: function() {
+			const rawTags = Array.isArray(zaobank.privateNoteTags) ? zaobank.privateNoteTags : [];
+			const uniqueTags = Array.from(new Set(rawTags.map(function(tag) {
+				return String(tag);
+			})));
+			return uniqueTags.map(function(tag) {
+				return {
+					slug: String(tag),
+					label: ZAOBank.formatTagLabel(tag)
+				};
+			});
+		},
+
+		getQueryParam: function(key) {
+			const params = new URLSearchParams(window.location.search || '');
+			const value = params.get(key);
+			return value ? value : '';
+		},
+
+		updateUnreadBadge: function(delta) {
+			const $badge = $('.zaobank-nav-badge');
+			if (!$badge.length || !delta) return;
+
+			const rawCount = $badge.attr('data-unread-count');
+			let current = rawCount ? parseInt(rawCount, 10) : parseInt($badge.text().replace('+', ''), 10);
+
+			if (isNaN(current)) return;
+
+			const next = Math.max(0, current + delta);
+			if (next <= 0) {
+				$badge.remove();
+				return;
+			}
+
+			$badge.attr('data-unread-count', next);
+			$badge.text(next > 99 ? '99+' : next);
+		},
+
 		escapeHtml: function(text) {
 			if (!text) return '';
 			const div = document.createElement('div');
@@ -1637,7 +1955,7 @@
 
 		formatDate: function(dateString, yearOnly = false) {
 			if (!dateString) return '';
-			const date = new Date(dateString);
+			const date = this.parseDate(dateString);
 			if (yearOnly) {
 				return date.toLocaleDateString(undefined, { year: 'numeric', month: 'short' });
 			}
@@ -1646,13 +1964,13 @@
 
 		formatTime: function(dateString) {
 			if (!dateString) return '';
-			const date = new Date(dateString);
+			const date = this.parseDate(dateString);
 			return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 		},
 
 		formatRelativeTime: function(dateString) {
 			if (!dateString) return '';
-			const date = new Date(dateString);
+			const date = this.parseDate(dateString);
 			const now = new Date();
 			const diff = Math.floor((now - date) / 1000);
 

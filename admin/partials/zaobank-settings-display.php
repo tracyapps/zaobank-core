@@ -28,6 +28,19 @@ if (isset($_POST['zaobank_save_settings']) && check_admin_referer('zaobank_setti
 		update_option('zaobank_flag_reasons', $reasons);
 	}
 
+	if (isset($_POST['message_search_roles']) && is_array($_POST['message_search_roles'])) {
+		$selected_roles = array_map('sanitize_key', $_POST['message_search_roles']);
+		$valid_roles = array();
+		foreach ($selected_roles as $role) {
+			if (wp_roles()->is_role($role)) {
+				$valid_roles[] = $role;
+			}
+		}
+		update_option('zaobank_message_search_roles', $valid_roles);
+	} else {
+		update_option('zaobank_message_search_roles', array());
+	}
+
 	echo '<div class="notice notice-success"><p>' . __('Settings saved.', 'zaobank') . '</p></div>';
 }
 
@@ -38,6 +51,11 @@ $flag_threshold = get_option('zaobank_flag_threshold', 1);
 $appreciation_tags = get_option('zaobank_appreciation_tags', array());
 $private_note_tags = get_option('zaobank_private_note_tags', array());
 $flag_reasons = get_option('zaobank_flag_reasons', array());
+$message_search_roles = get_option('zaobank_message_search_roles', array('member'));
+if (!is_array($message_search_roles)) {
+	$message_search_roles = array();
+}
+$available_roles = get_editable_roles();
 
 ?>
 
@@ -73,6 +91,25 @@ $flag_reasons = get_option('zaobank_flag_reasons', array());
 				<td>
 					<input type="number" name="flag_threshold" value="<?php echo esc_attr($flag_threshold); ?>" min="1" max="10">
 					<p class="description"><?php _e('Number of flags before content is auto-hidden', 'zaobank'); ?></p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row"><?php _e('Message Search Roles', 'zaobank'); ?></th>
+				<td>
+					<fieldset>
+						<legend class="screen-reader-text"><?php _e('Message Search Roles', 'zaobank'); ?></legend>
+						<?php foreach ($available_roles as $role_key => $role_info) : ?>
+							<label style="display:block; margin-bottom:6px;">
+								<input type="checkbox"
+								       name="message_search_roles[]"
+								       value="<?php echo esc_attr($role_key); ?>"
+									<?php checked(in_array($role_key, $message_search_roles, true)); ?>>
+								<?php echo esc_html($role_info['name']); ?>
+							</label>
+						<?php endforeach; ?>
+					</fieldset>
+					<p class="description"><?php _e('Only users with these roles appear in “Start a new message” search. Leave unchecked to disable search results.', 'zaobank'); ?></p>
 				</td>
 			</tr>
 

@@ -95,20 +95,32 @@ class ZAOBank_Exchanges {
 		$defaults = array(
 			'limit' => 50,
 			'offset' => 0,
-			'order' => 'DESC'
+			'order' => 'DESC',
+			'type' => 'all'
 		);
 
 		$args = wp_parse_args($args, $defaults);
 
+		$where_sql = '(provider_user_id = %d OR requester_user_id = %d)';
+		$values = array($user_id, $user_id);
+
+		if ($args['type'] === 'earned') {
+			$where_sql = 'provider_user_id = %d';
+			$values = array($user_id);
+		} elseif ($args['type'] === 'spent') {
+			$where_sql = 'requester_user_id = %d';
+			$values = array($user_id);
+		}
+
+		$values[] = $args['limit'];
+		$values[] = $args['offset'];
+
 		$query = $wpdb->prepare(
 			"SELECT * FROM $table 
-            WHERE provider_user_id = %d OR requester_user_id = %d
+            WHERE $where_sql
             ORDER BY created_at {$args['order']}
             LIMIT %d OFFSET %d",
-			$user_id,
-			$user_id,
-			$args['limit'],
-			$args['offset']
+			$values
 		);
 
 		$exchanges = $wpdb->get_results($query);
@@ -181,6 +193,67 @@ class ZAOBank_Exchanges {
 		$exchanges = $wpdb->get_results($query);
 
 		return array_map(array(__CLASS__, 'format_exchange_data'), $exchanges);
+	}
+
+	/**
+	 * Get a summary of people the user has exchanged with.
+	 */
+	public static function get_worked_with_summary($user_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_exchanges_table();
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT 
+					CASE 
+						WHEN provider_user_id = %d THEN requester_user_id 
+						ELSE provider_user_id 
+					END AS other_user_id,
+					COUNT(*) AS total_exchanges,
+					SUM(hours) AS total_hours,
+					SUM(CASE WHEN provider_user_id = %d THEN 1 ELSE 0 END) AS jobs_provided,
+					SUM(CASE WHEN requester_user_id = %d THEN 1 ELSE 0 END) AS jobs_received,
+					MAX(created_at) AS last_exchange_at
+				FROM $table
+				WHERE provider_user_id = %d OR requester_user_id = %d
+				GROUP BY other_user_id
+				ORDER BY last_exchange_at DESC",
+				$user_id,
+				$user_id,
+				$user_id,
+				$user_id,
+				$user_id
+			)
+		);
+
+		if (empty($rows)) {
+			return array();
+		}
+
+		$notes = ZAOBank_Private_Notes::get_user_notes($user_id);
+		$latest_notes = array();
+		foreach ($notes as $note) {
+			if (!isset($latest_notes[$note['subject_user_id']])) {
+				$latest_notes[$note['subject_user_id']] = $note;
+			}
+		}
+
+		return array_map(function($row) use ($latest_notes) {
+			$other_id = (int) $row->other_user_id;
+			$latest_note = isset($latest_notes[$other_id]) ? $latest_notes[$other_id] : null;
+
+			return array(
+				'other_user_id' => $other_id,
+				'other_user_name' => get_the_author_meta('display_name', $other_id),
+				'other_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($other_id, 48),
+				'total_exchanges' => (int) $row->total_exchanges,
+				'total_hours' => (float) ($row->total_hours ?: 0),
+				'jobs_provided' => (int) $row->jobs_provided,
+				'jobs_received' => (int) $row->jobs_received,
+				'last_exchange_at' => $row->last_exchange_at,
+				'latest_note' => $latest_note
+			);
+		}, $rows);
 	}
 
 	/**
@@ -260,6 +333,8 @@ class ZAOBank_Exchanges {
 
 		$job = get_post($exchange->job_id);
 		$region = null;
+		$provider_id = (int) $exchange->provider_user_id;
+		$requester_id = (int) $exchange->requester_user_id;
 
 		if ($exchange->region_term_id) {
 			$region_term = get_term($exchange->region_term_id, 'zaobank_region');
@@ -276,10 +351,14 @@ class ZAOBank_Exchanges {
 			'id' => (int) $exchange->id,
 			'job_id' => (int) $exchange->job_id,
 			'job_title' => $job ? $job->post_title : null,
-			'provider_id' => (int) $exchange->provider_user_id,
-			'provider_name' => get_the_author_meta('display_name', $exchange->provider_user_id),
-			'requester_id' => (int) $exchange->requester_user_id,
-			'requester_name' => get_the_author_meta('display_name', $exchange->requester_user_id),
+			'provider_id' => $provider_id,
+			'provider_user_id' => $provider_id,
+			'provider_name' => get_the_author_meta('display_name', $provider_id),
+			'provider_avatar' => ZAOBank_Helpers::get_user_avatar_url($provider_id, 32),
+			'requester_id' => $requester_id,
+			'requester_user_id' => $requester_id,
+			'requester_name' => get_the_author_meta('display_name', $requester_id),
+			'requester_avatar' => ZAOBank_Helpers::get_user_avatar_url($requester_id, 32),
 			'hours' => (float) $exchange->hours,
 			'region' => $region,
 			'created_at' => $exchange->created_at

@@ -199,7 +199,8 @@ class ZAOBank_Activator {
 				'spam',
 				'safety-concern',
 				'other'
-			)
+			),
+			'zaobank_message_search_roles' => array('member')
 		);
 
 		foreach ($default_options as $key => $value) {

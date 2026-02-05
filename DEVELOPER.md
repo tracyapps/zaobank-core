@@ -640,6 +640,18 @@ JavaScript receives these variables via `wp_localize_script`:
 }
 ```
 
+## Admin Settings
+
+Settings are available under **Settings → ZAO Bank** and stored as options:
+
+- `zaobank_enable_regions` (bool) — Enable regional filtering and organization
+- `zaobank_auto_hide_flagged` (bool) — Auto-hide content after threshold
+- `zaobank_flag_threshold` (int) — Flag count before auto-hide
+- `zaobank_appreciation_tags` (array) — Allowed appreciation tags
+- `zaobank_private_note_tags` (array) — Allowed private note tags
+- `zaobank_flag_reasons` (array) — Allowed flag reasons
+- `zaobank_message_search_roles` (array) — Roles allowed in “Start a new message” search
+
 ## Database Schema
 
 ### wp_zaobank_exchanges
@@ -727,7 +739,7 @@ CREATE TABLE wp_zaobank_messages (
 - `exchange_id`: Optional foreign key to `wp_zaobank_exchanges`. Provides context when a message relates to a specific job exchange.
 - `is_read`: Set to `0` on creation. Only the recipient (`to_user_id`) can mark as read.
 - `message`: Sanitized with `wp_kses_post()` to allow safe HTML.
-- `message_type`: Either `'direct'` (default, user-to-user messages) or `'job_update'` (system-generated notifications for job releases, completions, and appreciations).
+- `message_type`: Either `'direct'` (default, user-to-user messages) or `'job_update'` (system-generated notifications for job claims, releases, completions, and appreciations).
 - `job_id`: Optional foreign key to a `timebank_job` post. Set on `job_update` messages to link the notification to its job.
 
 ### wp_zaobank_private_notes
@@ -885,6 +897,7 @@ Complete a job and record exchange (authenticated, job owner only).
 ```
 
 A `job_update` message is automatically sent to the provider notifying them of the completion and hours credited.
+The `job` payload includes `exchange_id` once completed to link into appreciation flows.
 
 #### POST /jobs/{id}/release
 Release a claimed job back to available status (authenticated, provider only).
@@ -942,14 +955,71 @@ Get current user's time balance (authenticated).
 #### GET /me/exchanges
 Get current user's exchange history (authenticated).
 
+**Parameters**:
+- `filter` (string, optional): `all` (default), `earned`, or `spent`
+
 **Response**:
 ```json
 {
-    "exchanges": [...],
+    "exchanges": [
+        {
+            "id": 12,
+            "job_id": 5,
+            "job_title": "Help with gardening",
+            "provider_id": 42,
+            "provider_user_id": 42,
+            "provider_name": "Jane Doe",
+            "provider_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "requester_id": 7,
+            "requester_user_id": 7,
+            "requester_name": "John Smith",
+            "requester_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "hours": 3,
+            "region": { "id": 5, "name": "Milwaukee", "slug": "milwaukee" },
+            "created_at": "2026-01-28 14:30:00",
+            "has_appreciation": true
+        }
+    ],
     "total": 15,
     "pages": 1
 }
 ```
+
+**Notes**:
+- `has_appreciation` is used in the exchange history UI to show the "Appreciation sent" status badge and hide the give-appreciation actions.
+
+#### GET /me/worked-with
+Get a summary of people the current user has exchanged with (authenticated).
+
+**Response**:
+```json
+{
+    "people": [
+        {
+            "other_user_id": 7,
+            "other_user_name": "John Smith",
+            "other_user_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "total_exchanges": 4,
+            "total_hours": 6,
+            "jobs_provided": 2,
+            "jobs_received": 2,
+            "last_exchange_at": "2026-01-30 09:12:00",
+            "latest_note": {
+                "id": 11,
+                "author_user_id": 42,
+                "subject_user_id": 7,
+                "subject_user_name": "John Smith",
+                "tag_slug": "reliable",
+                "note": "Great communicator.",
+                "created_at": "2026-01-31 12:00:00"
+            }
+        }
+    ]
+}
+```
+
+**Notes**:
+- `latest_note` is the most recent private note authored by the current user for that person (always private to the author).
 
 #### GET /me/profile
 Get current user's profile (authenticated).
@@ -959,6 +1029,7 @@ Get current user's profile (authenticated).
 {
     "id": 42,
     "name": "Jane Doe",
+    "display_name": "Jane Doe",
     "email": "jane@example.com",
     "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
     "skills": "Gardening, tutoring",
@@ -987,6 +1058,7 @@ Update current user's profile (authenticated).
 **Body** (all fields optional):
 ```json
 {
+    "display_name": "string",
     "user_bio": "string",
     "user_skills": "string",
     "user_availability": "string",
@@ -998,6 +1070,30 @@ Update current user's profile (authenticated).
     "user_contact_preferences": ["email", "signal", "discord", "platform-message"]
 }
 ```
+
+#### GET /users/search
+Search verified users for messaging (authenticated).
+
+**Parameters**:
+- `q` (string, required): Search query (min 2 characters)
+- `limit` (int, optional): Max results (default 10, max 25)
+
+**Response**:
+```json
+{
+    "users": [
+        {
+            "id": 42,
+            "name": "Jane Doe",
+            "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg"
+        }
+    ]
+}
+```
+
+**Notes**:
+- Results are filtered by roles from the **Settings → ZAO Bank → Message Search Roles** option (and can be overridden with the `zaobank_message_search_roles` filter).
+- Current user is excluded from results.
 
 ### Messages Endpoints
 
@@ -1017,8 +1113,10 @@ Get current user's messages (authenticated).
             "exchange_id": null,
             "from_user_id": 42,
             "from_user_name": "Jane Doe",
+            "from_user_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
             "to_user_id": 7,
             "to_user_name": "John Smith",
+            "to_user_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
             "message": "Hey, I can help with your gardening job!",
             "is_read": false,
             "created_at": "2026-01-28 14:30:00"
@@ -1106,6 +1204,58 @@ Archive a conversation (authenticated). Hides the conversation from the conversa
 {
     "success": true,
     "message": "Conversation archived"
+}
+```
+
+### Appreciations Endpoints
+
+#### GET /users/{id}/appreciations
+Get public appreciations for a user.
+
+**Response**:
+```json
+{
+    "appreciations": [
+        {
+            "id": 12,
+            "exchange_id": 5,
+            "from_user_id": 42,
+            "from_user_name": "Jane Doe",
+            "from_user_avatar": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "to_user_id": 7,
+            "to_user_name": "John Smith",
+            "tag_slug": "helpful",
+            "message": "Thanks for the help!",
+            "is_public": true,
+            "job_id": 99,
+            "job_title": "Help with gardening",
+            "created_at": "2026-01-28 14:30:00"
+        }
+    ]
+}
+```
+
+#### GET /me/appreciations/given
+Get appreciations given by the current user (authenticated).
+
+**Response**:
+```json
+{
+    "appreciations": [...]
+}
+```
+
+#### POST /appreciations
+Create an appreciation (authenticated).
+
+**Body**:
+```json
+{
+    "exchange_id": 5,
+    "to_user_id": 7,
+    "tag_slug": "helpful",
+    "message": "Thanks for the help!",
+    "is_public": true
 }
 ```
 

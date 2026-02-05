@@ -189,8 +189,10 @@ class ZAOBank_Messages {
 			'exchange_id' => $message->exchange_id ? (int) $message->exchange_id : null,
 			'from_user_id' => (int) $message->from_user_id,
 			'from_user_name' => get_the_author_meta('display_name', $message->from_user_id),
+			'from_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($message->from_user_id, 40),
 			'to_user_id' => (int) $message->to_user_id,
 			'to_user_name' => get_the_author_meta('display_name', $message->to_user_id),
+			'to_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($message->to_user_id, 40),
 			'message' => $message->message,
 			'is_read' => (bool) $message->is_read,
 			'created_at' => $message->created_at

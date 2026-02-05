@@ -11,6 +11,12 @@ class ZAOBank_REST_Appreciations extends ZAOBank_REST_Controller {
 			'permission_callback' => array($this, 'check_authentication')
 		));
 
+		register_rest_route($this->namespace, '/me/appreciations/given', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'get_given_appreciations'),
+			'permission_callback' => array($this, 'check_authentication')
+		));
+
 		register_rest_route($this->namespace, '/users/(?P<id>[\d]+)/appreciations', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'get_user_appreciations'),
@@ -41,6 +47,17 @@ class ZAOBank_REST_Appreciations extends ZAOBank_REST_Controller {
 		$user_id = (int) $request['id'];
 		$appreciations = ZAOBank_Appreciations::get_user_appreciations($user_id, true);
 
-		return $this->success_response($appreciations);
+		return $this->success_response(array(
+			'appreciations' => $appreciations
+		));
+	}
+
+	public function get_given_appreciations($request) {
+		$user_id = get_current_user_id();
+		$appreciations = ZAOBank_Appreciations::get_given_appreciations($user_id);
+
+		return $this->success_response(array(
+			'appreciations' => $appreciations
+		));
 	}
 }

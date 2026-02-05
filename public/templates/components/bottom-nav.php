@@ -63,7 +63,7 @@ foreach ($urls as $key => $url) {
 		</svg>
 		<span class="zaobank-nav-label"><?php _e('Messages', 'zaobank'); ?></span>
 		<?php if ($unread_count > 0) : ?>
-			<span class="zaobank-nav-badge" aria-label="<?php echo esc_attr(sprintf(_n('%d unread message', '%d unread messages', $unread_count, 'zaobank'), $unread_count)); ?>">
+			<span class="zaobank-nav-badge" data-unread-count="<?php echo (int) $unread_count; ?>" aria-label="<?php echo esc_attr(sprintf(_n('%d unread message', '%d unread messages', $unread_count, 'zaobank'), $unread_count)); ?>">
 				<?php echo $unread_count > 99 ? '99+' : $unread_count; ?>
 			</span>
 		<?php endif; ?>

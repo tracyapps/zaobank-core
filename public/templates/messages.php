@@ -18,6 +18,16 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 		<h1 class="zaobank-page-title"><?php _e('Messages', 'zaobank'); ?></h1>
 	</header>
 
+	<div class="zaobank-message-search" data-component="message-search">
+		<label for="zaobank-message-search-input" class="zaobank-sr-only"><?php _e('Start a new message', 'zaobank'); ?></label>
+		<input type="search"
+		       id="zaobank-message-search-input"
+		       class="zaobank-input"
+		       data-action="message-user-search"
+		       placeholder="<?php esc_attr_e('Start a new message...', 'zaobank'); ?>">
+		<div class="zaobank-message-search-results" aria-live="polite"></div>
+	</div>
+
 	<!-- Conversations List -->
 	<div class="zaobank-conversations-list" data-loading="true">
 		<div class="zaobank-loading-state">
@@ -43,17 +53,36 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 <?php include ZAOBANK_PLUGIN_DIR . 'public/templates/components/bottom-nav.php'; ?>
 
 <script type="text/template" id="zaobank-conversation-item-template">
-<a href="<?php echo esc_url($urls['messages']); ?>?user_id={{other_user_id}}" class="zaobank-conversation-item {{#if has_unread}}unread{{/if}}">
-	<img src="{{other_user_avatar}}" alt="" class="zaobank-avatar">
-	<div class="zaobank-conversation-content">
-		<div class="zaobank-conversation-header">
-			<span class="zaobank-conversation-name">{{other_user_name}}</span>
-			<span class="zaobank-conversation-time">{{last_message_time}}</span>
+<div class="zaobank-conversation-item-wrapper">
+	<a href="<?php echo esc_url($urls['messages']); ?>?user_id={{other_user_id}}" class="zaobank-conversation-item {{#if has_unread}}unread{{/if}}">
+		<img src="{{other_user_avatar}}" alt="" class="zaobank-avatar">
+		<div class="zaobank-conversation-content">
+			<div class="zaobank-conversation-header">
+				<span class="zaobank-conversation-name">{{other_user_name}}</span>
+				<span class="zaobank-conversation-time">{{last_message_time}}</span>
+			</div>
+			<p class="zaobank-conversation-preview">{{last_message_preview}}</p>
 		</div>
-		<p class="zaobank-conversation-preview">{{last_message_preview}}</p>
+		{{#if unread_count}}
+		<span class="zaobank-conversation-badge" data-unread-count="{{unread_count}}">{{unread_count}}</span>
+		{{/if}}
+	</a>
+	<div class="zaobank-conversation-actions">
+		{{#if has_unread}}
+		<button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-btn-sm zaobank-mark-read" data-user-id="{{other_user_id}}">
+			<?php _e('Mark Read', 'zaobank'); ?>
+		</button>
+		{{/if}}
+		<button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-btn-sm zaobank-archive-conversation" data-user-id="{{other_user_id}}">
+			<?php _e('Archive', 'zaobank'); ?>
+		</button>
 	</div>
-	{{#if unread_count}}
-	<span class="zaobank-conversation-badge">{{unread_count}}</span>
-	{{/if}}
+</div>
+</script>
+
+<script type="text/template" id="zaobank-message-search-item-template">
+<a href="<?php echo esc_url($urls['messages']); ?>?user_id={{id}}" class="zaobank-message-search-item">
+	<img src="{{avatar_url}}" alt="" class="zaobank-avatar-small">
+	<span class="zaobank-message-search-name">{{name}}</span>
 </a>
 </script>

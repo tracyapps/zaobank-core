@@ -43,7 +43,9 @@ class ZAOBank_Public {
 				'restUrl' => rest_url('zaobank/v1/'),
 				'restNonce' => wp_create_nonce('wp_rest'),
 				'userId' => get_current_user_id(),
-				'isLoggedIn' => is_user_logged_in()
+				'isLoggedIn' => is_user_logged_in(),
+				'appreciationTags' => array_values(get_option('zaobank_appreciation_tags', array())),
+				'privateNoteTags' => array_values(get_option('zaobank_private_note_tags', array()))
 			)
 		);
 	}

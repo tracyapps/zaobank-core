@@ -83,19 +83,42 @@ class ZAOBank_Appreciations {
 	}
 
 	/**
+	 * Get appreciations given by a user.
+	 */
+	public static function get_given_appreciations($user_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_appreciations_table();
+
+		$appreciations = $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT * FROM $table WHERE from_user_id = %d ORDER BY created_at DESC",
+				$user_id
+			)
+		);
+
+		return array_map(array(__CLASS__, 'format_appreciation_data'), $appreciations);
+	}
+
+	/**
 	 * Format appreciation data.
 	 */
 	private static function format_appreciation_data($appreciation) {
+		$exchange = ZAOBank_Exchanges::get_exchange($appreciation->exchange_id);
+
 		return array(
 			'id' => (int) $appreciation->id,
 			'exchange_id' => (int) $appreciation->exchange_id,
 			'from_user_id' => (int) $appreciation->from_user_id,
 			'from_user_name' => get_the_author_meta('display_name', $appreciation->from_user_id),
+			'from_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($appreciation->from_user_id, 40),
 			'to_user_id' => (int) $appreciation->to_user_id,
+			'to_user_name' => get_the_author_meta('display_name', $appreciation->to_user_id),
 			'tag_slug' => $appreciation->tag_slug,
 			'message' => $appreciation->message,
 			'is_public' => (bool) $appreciation->is_public,
-			'created_at' => $appreciation->created_at
+			'created_at' => $appreciation->created_at,
+			'job_id' => $exchange ? $exchange['job_id'] : null,
+			'job_title' => $exchange ? $exchange['job_title'] : null
 		);
 	}
 }

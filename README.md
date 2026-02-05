@@ -147,7 +147,8 @@ GET    /job-types            - List all job type terms
 
 ```
 GET    /me/balance           - Get current user's time balance
-GET    /me/exchanges         - Get current user's exchange history
+GET    /me/exchanges         - Get current user's exchange history (optional `filter=all|earned|spent`)
+GET    /me/worked-with       - Get people the user has worked with (exchange summary + latest private note)
 GET    /me/profile           - Get current user's profile
 PUT    /me/profile           - Update current user's profile
 GET    /me/statistics        - Get current user's statistics
@@ -165,6 +166,13 @@ GET    /regions              - Get all regions (hierarchical)
 ```
 POST   /appreciations                    - Create appreciation
 GET    /users/{id}/appreciations         - Get user's appreciations
+GET    /me/appreciations/given           - Get appreciations you've given (auth)
+```
+
+### Users
+
+```
+GET    /users/search          - Search verified users for messaging (params: `q`, `limit`)
 ```
 
 ### Messages
@@ -205,6 +213,24 @@ fetch('/wp-json/zaobank/v1/me/balance', {
     'X-WP-Nonce': wpApiSettings.nonce
   }
 })
+```
+
+### Update Profile
+
+```javascript
+fetch('/wp-json/zaobank/v1/me/profile', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-WP-Nonce': wpApiSettings.nonce
+  },
+  body: JSON.stringify({
+    display_name: "Jane Doe",
+    user_bio: "Community organizer and plant lover"
+  })
+})
+  .then(response => response.json())
+  .then(data => console.log('Profile updated:', data.profile));
 ```
 
 ### Create a Job
@@ -293,9 +319,24 @@ fetch('/wp-json/zaobank/v1/me/messages?with_user=42', {
   .then(data => {
     data.messages.forEach(msg => {
       console.log(msg.from_user_name + ': ' + msg.message);
+      console.log('Avatar:', msg.from_user_avatar);
     });
   });
 ```
+
+### Search Users (for Messaging)
+
+```javascript
+fetch('/wp-json/zaobank/v1/users/search?q=jane', {
+  headers: {
+    'X-WP-Nonce': wpApiSettings.nonce
+  }
+})
+  .then(response => response.json())
+  .then(data => console.log('Matches:', data.users));
+```
+
+Search results are limited to roles configured in **Settings → ZAO Bank → Message Search Roles**.
 
 ### Mark a Message as Read
 
@@ -429,7 +470,7 @@ Then edit the theme copy to customize the layout while keeping the data attribut
 | `profile-edit.php` | Profile edit form |
 | `messages.php` | Conversations list / job updates view |
 | `conversation.php` | Single conversation thread |
-| `exchanges.php` | Exchange history |
+| `exchanges.php` | Exchange history (shows appreciation status + people worked with) |
 | `appreciations.php` | Appreciations list |
 | `components/bottom-nav.php` | Mobile bottom navigation |
 
@@ -641,8 +682,9 @@ Available via Settings → ZAO Bank:
 - **Auto-hide Flagged Content** - Automatically hide flagged content
 - **Flag Threshold** - Number of flags before auto-hiding
 - **Appreciation Tags** - Positive tags for appreciations
-- **Private Note Tags** - Memory aid tags for private notes
+- **Private Note Tags** - Memory aid tags for private notes (used in “People You’ve Worked With” notes)
 - **Flag Reasons** - Available reasons for flagging content
+- **Message Search Roles** - Roles allowed to appear in “Start a new message” search
 
 ## Troubleshooting
 

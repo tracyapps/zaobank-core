@@ -88,6 +88,11 @@ class ZAOBank_Jobs {
 			$user_id = get_current_user_id();
 		}
 
+		$job = get_post($job_id);
+		if (!$job || $job->post_type !== 'timebank_job') {
+			return new WP_Error('invalid_job', __('Invalid job', 'zaobank'));
+		}
+
 		// Check if job can be claimed
 		if (!ZAOBank_Security::can_claim_job($job_id, $user_id)) {
 			return new WP_Error(
@@ -103,6 +108,19 @@ class ZAOBank_Jobs {
 		wp_update_post(array(
 			'ID' => $job_id,
 			'post_status' => 'publish'
+		));
+
+		// Notify requester
+		ZAOBank_Messages::create_message(array(
+			'from_user_id' => $user_id,
+			'to_user_id' => (int) $job->post_author,
+			'message' => sprintf(
+				__("%s claimed your job '%s'.", 'zaobank'),
+				get_the_author_meta('display_name', $user_id),
+				$job->post_title
+			),
+			'message_type' => 'job_update',
+			'job_id' => $job_id
 		));
 
 		// Log the claim
@@ -187,6 +205,14 @@ class ZAOBank_Jobs {
 			return new WP_Error(
 				'cannot_complete_job',
 				__('You cannot complete this job', 'zaobank')
+			);
+		}
+
+		$completed_at = get_post_meta($job_id, 'completed_at', true);
+		if ($completed_at) {
+			return new WP_Error(
+				'already_completed',
+				__('This job has already been completed.', 'zaobank')
 			);
 		}
 
@@ -322,6 +348,9 @@ class ZAOBank_Jobs {
 			return null;
 		}
 
+		$requester = get_userdata($job->post_author);
+		$provider_id = (int) get_post_meta($job_id, 'provider_user_id', true);
+
 		$regions = wp_get_object_terms($job_id, 'zaobank_region');
 		$region_data = array();
 
@@ -346,6 +375,12 @@ class ZAOBank_Jobs {
 			}
 		}
 
+		$exchange = null;
+		$completed_at = get_post_meta($job_id, 'completed_at', true);
+		if (!empty($completed_at)) {
+			$exchange = ZAOBank_Exchanges::get_job_exchange($job_id);
+		}
+
 		return array(
 			'id' => $job->ID,
 			'title' => $job->post_title,
@@ -353,13 +388,17 @@ class ZAOBank_Jobs {
 			'requester_id' => (int) $job->post_author,
 			'requester_name' => get_the_author_meta('display_name', $job->post_author),
 			'requester_avatar' => ZAOBank_Helpers::get_user_avatar_url($job->post_author, 48),
+			'requester_registered' => $requester ? $requester->user_registered : null,
 			'hours' => (float) get_post_meta($job_id, 'hours', true),
 			'location' => get_post_meta($job_id, 'location', true),
 			'skills_required' => get_post_meta($job_id, 'skills_required', true),
 			'preferred_date' => get_post_meta($job_id, 'preferred_date', true),
 			'flexible_timing' => (bool) get_post_meta($job_id, 'flexible_timing', true),
-			'provider_id' => get_post_meta($job_id, 'provider_user_id', true),
-			'completed_at' => get_post_meta($job_id, 'completed_at', true),
+			'provider_id' => $provider_id ? $provider_id : null,
+			'provider_name' => $provider_id ? get_the_author_meta('display_name', $provider_id) : '',
+			'provider_avatar' => $provider_id ? ZAOBank_Helpers::get_user_avatar_url($provider_id, 48) : '',
+			'completed_at' => $completed_at,
+			'exchange_id' => $exchange ? $exchange['id'] : null,
 			'visibility' => get_post_meta($job_id, 'visibility', true),
 			'regions' => $region_data,
 			'job_types' => $job_type_data,
