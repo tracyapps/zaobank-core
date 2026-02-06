@@ -74,6 +74,21 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 </div>
 {{/if}}
 
+{{#if skill_tags.length}}
+<div class="zaobank-card zaobank-profile-section">
+	<div class="zaobank-card-header">
+		<h2 class="zaobank-card-title"><?php _e('Skills Offered', 'zaobank'); ?></h2>
+	</div>
+	<div class="zaobank-card-body">
+		<div class="zaobank-tags">
+			{{#each skill_tags}}
+			<span class="zaobank-tag">{{this}}</span>
+			{{/each}}
+		</div>
+	</div>
+</div>
+{{/if}}
+
 {{#if availability}}
 <div class="zaobank-card zaobank-profile-section">
 	<div class="zaobank-card-header">
@@ -88,7 +103,7 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 {{#if profile_tags.length}}
 <div class="zaobank-card zaobank-profile-section">
 	<div class="zaobank-card-header">
-		<h2 class="zaobank-card-title"><?php _e('Profile Tags', 'zaobank'); ?></h2>
+		<h2 class="zaobank-card-title"><?php _e('Personality Tags', 'zaobank'); ?></h2>
 	</div>
 	<div class="zaobank-card-body">
 		<div class="zaobank-tags">

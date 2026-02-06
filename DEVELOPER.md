@@ -125,6 +125,7 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 | `[zaobank_job id="X"]` | `job-single.php` | Single job detail view (standalone) | No |
 | `[zaobank_job_form]` | `job-form.php` | Create/edit job form | Yes |
 | `[zaobank_my_jobs]` | `my-jobs.php` | User's posted and claimed jobs | Yes |
+| `[zaobank_community]` | `community.php` | Community directory and worked-with history | Yes |
 | `[zaobank_profile]` | `profile.php` | User profile (own or other) | Partial |
 | `[zaobank_profile_edit]` | `profile-edit.php` | Profile edit form | Yes |
 | `[zaobank_messages]` | `messages.php` or `conversation.php` | Conversations list; delegates to conversation view on `?user_id=`, job updates view on `?view=updates` | Yes |
@@ -148,6 +149,9 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 
 #### `[zaobank_profile]`
 - `user_id` (int): User to display. Defaults to current user. Also accepts `?user_id=X`.
+
+#### `[zaobank_community]`
+- `view` (string): Optional view override (`community` or `worked-with`). Defaults to `community`.
 
 #### `[zaobank_messages]`
 - **URL routing**: When `?user_id=X` is present, delegates to `[zaobank_conversation]` and renders the conversation view. When `?view=updates` is present, shows the job updates view instead of the conversations list. This allows one page to handle conversations list, individual conversations, and job notifications.
@@ -343,6 +347,7 @@ add_filter('zaobank_page_slugs', function($slugs) {
         'jobs' => 'timebank-jobs',
         'job_form' => 'timebank-new-job',
         'my_jobs' => 'timebank-my-jobs',
+        'community' => 'timebank-community',
         'profile' => 'timebank-profile',
         'profile_edit' => 'timebank-profile-edit',
         'messages' => 'timebank-messages',
@@ -358,6 +363,8 @@ Get URLs in templates:
 $urls = ZAOBank_Shortcodes::get_page_urls();
 echo $urls['dashboard']; // Full URL to dashboard page
 ```
+
+**ZAO Theme Convenience:** `app/page-app.php` supports a hybrid pattern. If a page has a ZAOBank shortcode, it renders the content normally. If the content is empty and the page slug matches a configured ZAOBank page (e.g., `/app/community`), it auto-renders the matching ZAOBank template. This keeps shortcode support while allowing theme-level template control.
 
 ### Toast Notifications
 
@@ -636,7 +643,10 @@ JavaScript receives these variables via `wp_localize_script`:
     restUrl: '/wp-json/zaobank/v1/',
     restNonce: 'abc123...',
     userId: 42,
-    isLoggedIn: true
+    isLoggedIn: true,
+    hasMemberAccess: true,
+    appreciationTags: ['reliable', 'kind'],
+    privateNoteTags: ['easy-to-work-with']
 }
 ```
 
@@ -648,9 +658,11 @@ Settings are available under **Settings → ZAO Bank** and stored as options:
 - `zaobank_auto_hide_flagged` (bool) — Auto-hide content after threshold
 - `zaobank_flag_threshold` (int) — Flag count before auto-hide
 - `zaobank_appreciation_tags` (array) — Allowed appreciation tags
+- `zaobank_skill_tags` (array) — Skill tags shown in Community filters and on profiles
+- `zaobank_profile_tags` (array) — Personality tags shown on profiles
 - `zaobank_private_note_tags` (array) — Allowed private note tags
 - `zaobank_flag_reasons` (array) — Allowed flag reasons
-- `zaobank_message_search_roles` (array) — Roles allowed in “Start a new message” search
+- `zaobank_message_search_roles` (array) — Member access roles for messaging, jobs, requests, and profile edits (legacy option key)
 
 ## Database Schema
 
@@ -856,6 +868,7 @@ Create a new job (authenticated).
     "description": "string",
     "hours": 2.5,  // number (required)
     "location": "string",
+    "virtual_ok": true,
     "regions": [1, 2],  // array of region IDs
     "job_types": [3, 7],  // array of job type term IDs
     "skills_required": "string",
@@ -1021,6 +1034,79 @@ Get a summary of people the current user has exchanged with (authenticated).
 **Notes**:
 - `latest_note` is the most recent private note authored by the current user for that person (always private to the author).
 
+#### GET /me/saved-profiles
+Get saved profiles for the current user (authenticated, member access).
+
+**Response**:
+```json
+{
+    "users": [
+        {
+            "id": 7,
+            "name": "John Smith",
+            "display_name": "John Smith",
+            "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "skills": "Woodworking, carpentry",
+            "skill_tags": ["woodworking"],
+            "availability": "Weekends",
+            "available_for_requests": true,
+            "profile_tags": ["reliable"],
+            "primary_region": { "id": 2, "name": "Madison", "slug": "madison" }
+        }
+    ],
+    "ids": [7]
+}
+```
+
+#### POST /me/saved-profiles
+Save a profile to the current user's address book (authenticated, member access).
+
+**Body**:
+```json
+{ "user_id": 7 }
+```
+
+#### DELETE /me/saved-profiles/{id}
+Remove a saved profile from the current user's address book (authenticated, member access).
+
+#### GET /community/users
+List community members available for requests (authenticated).
+
+**Parameters**:
+- `q` (string, optional): Search by name, email, or skills
+- `skill` (string, optional): Filter by skill keyword
+- `skill_tags` (array|string, optional): Filter by skill tag slugs
+- `region` (int, optional): Filter by primary region ID
+- `sort` (string, optional): `recent` (default) or `name`
+- `page` (int, optional): Page number (default: 1)
+- `per_page` (int, optional): Items per page (default: 12)
+
+**Response**:
+```json
+{
+    "users": [
+        {
+            "id": 42,
+            "name": "Jane Doe",
+            "display_name": "Jane Doe",
+            "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
+            "skills": "Gardening, tutoring",
+            "skill_tags": ["gardening", "tutoring"],
+            "availability": "Weekday evenings",
+            "available_for_requests": true,
+            "profile_tags": ["reliable", "creative"],
+            "primary_region": { "id": 5, "name": "Milwaukee", "slug": "milwaukee" }
+        }
+    ],
+    "total": 15,
+    "pages": 2
+}
+```
+
+**Notes**:
+- Results are limited to users whose roles are in **Settings → ZAO Bank → Member Access Roles**.
+- Users who turn off `available_for_requests` are excluded from community results.
+
 #### GET /me/profile
 Get current user's profile (authenticated).
 
@@ -1033,7 +1119,9 @@ Get current user's profile (authenticated).
     "email": "jane@example.com",
     "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
     "skills": "Gardening, tutoring",
+    "skill_tags": ["gardening", "tutoring"],
     "availability": "Weekday evenings",
+    "available_for_requests": true,
     "bio": "Community organizer and plant lover",
     "profile_tags": ["reliable", "creative"],
     "registered": "2025-01-15 10:30:00",
@@ -1062,11 +1150,13 @@ Update current user's profile (authenticated).
     "user_bio": "string",
     "user_skills": "string",
     "user_availability": "string",
+    "user_available_for_requests": true,
     "user_phone": "string",
     "user_discord_id": "string",
     "user_primary_region": 5,
     "user_profile_image": 456,
     "user_profile_tags": ["reliable", "creative"],
+    "user_skill_tags": ["gardening", "tutoring"],
     "user_contact_preferences": ["email", "signal", "discord", "platform-message"]
 }
 ```
@@ -1092,7 +1182,7 @@ Search verified users for messaging (authenticated).
 ```
 
 **Notes**:
-- Results are filtered by roles from the **Settings → ZAO Bank → Message Search Roles** option (and can be overridden with the `zaobank_message_search_roles` filter).
+- Results are filtered by roles from the **Settings → ZAO Bank → Member Access Roles** option (and can be overridden with the `zaobank_member_access_roles` or `zaobank_message_search_roles` filters).
 - Current user is excluded from results.
 
 ### Messages Endpoints
@@ -1395,6 +1485,7 @@ add_filter('zaobank_page_slugs', function($slugs) {
         'jobs'          => 'app/jobs',
         'job_form'      => 'app/new-job',
         'my_jobs'       => 'app/my-jobs',
+        'community'     => 'app/community',
         'profile'       => 'app/profile',
         'profile_edit'  => 'app/profile-edit',
         'messages'      => 'app/messages',

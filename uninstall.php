@@ -59,8 +59,11 @@ $options = array(
 	'zaobank_auto_hide_flagged',
 	'zaobank_flag_threshold',
 	'zaobank_appreciation_tags',
+	'zaobank_skill_tags',
+	'zaobank_profile_tags',
 	'zaobank_private_note_tags',
 	'zaobank_flag_reasons',
+	'zaobank_message_search_roles',
 	'zaobank_enable_security_logging',
 	'zaobank_security_logs'
 );
@@ -72,12 +75,15 @@ foreach ($options as $option) {
 // Delete user meta
 $user_meta_keys = array(
 	'user_skills',
+	'user_skill_tags',
 	'user_availability',
+	'user_available_for_requests',
 	'user_bio',
 	'user_primary_region',
 	'user_profile_tags',
 	'user_contact_preferences',
 	'user_phone',
+	'zaobank_saved_profiles',
 	'zaobank_onboarding_completed',
 	'zaobank_onboarding_completed_at'
 );

@@ -47,6 +47,40 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'permission_callback' => array($this, 'check_authentication')
 		));
 
+		// Saved profiles (address book)
+		register_rest_route($this->namespace, '/me/saved-profiles', array(
+			array(
+				'methods' => WP_REST_Server::READABLE,
+				'callback' => array($this, 'get_saved_profiles'),
+				'permission_callback' => array($this, 'check_member_access')
+			),
+			array(
+				'methods' => WP_REST_Server::CREATABLE,
+				'callback' => array($this, 'save_profile'),
+				'permission_callback' => array($this, 'check_member_access'),
+				'args' => array(
+					'user_id' => array(
+						'required' => true,
+						'type' => 'integer',
+						'description' => __('User ID to save.', 'zaobank')
+					)
+				)
+			)
+		));
+
+		register_rest_route($this->namespace, '/me/saved-profiles/(?P<id>[\d]+)', array(
+			'methods' => WP_REST_Server::DELETABLE,
+			'callback' => array($this, 'remove_saved_profile'),
+			'permission_callback' => array($this, 'check_member_access'),
+			'args' => array(
+				'id' => array(
+					'validate_callback' => function($param) {
+						return is_numeric($param);
+					}
+				)
+			)
+		));
+
 		// Get current user profile
 		register_rest_route($this->namespace, '/me/profile', array(
 			'methods' => WP_REST_Server::READABLE,
@@ -58,14 +92,14 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/me/profile', array(
 			'methods' => WP_REST_Server::EDITABLE,
 			'callback' => array($this, 'update_profile'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		// Search users (members only)
 		register_rest_route($this->namespace, '/users/search', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'search_users'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'q' => array(
 					'type' => 'string',
@@ -74,6 +108,48 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 				'limit' => array(
 					'type' => 'integer',
 					'default' => 10
+				)
+			)
+		));
+
+		// Community directory users
+		register_rest_route($this->namespace, '/community/users', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'get_community_users'),
+			'permission_callback' => array($this, 'check_authentication'),
+			'args' => array(
+				'q' => array(
+					'type' => 'string',
+					'description' => __('Search query for user name, email, or skills.', 'zaobank')
+				),
+				'skill' => array(
+					'type' => 'string',
+					'description' => __('Filter by skill keyword.', 'zaobank')
+				),
+				'skill_tags' => array(
+					'type' => 'array',
+					'description' => __('Filter by skill tags.', 'zaobank')
+				),
+				'profile_tags' => array(
+					'type' => 'array',
+					'description' => __('Filter by profile tags (legacy).', 'zaobank')
+				),
+				'region' => array(
+					'type' => 'integer',
+					'description' => __('Filter by primary region ID.', 'zaobank')
+				),
+				'sort' => array(
+					'type' => 'string',
+					'default' => 'recent',
+					'description' => __('Sort order (recent, name).', 'zaobank')
+				),
+				'page' => array(
+					'type' => 'integer',
+					'default' => 1
+				),
+				'per_page' => array(
+					'type' => 'integer',
+					'default' => 12
 				)
 			)
 		));
@@ -193,6 +269,88 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 	}
 
 	/**
+	 * Get saved profiles for the current user.
+	 */
+	public function get_saved_profiles($request) {
+		$user_id = get_current_user_id();
+		$saved_ids = $this->get_saved_profile_ids($user_id);
+
+		if (empty($saved_ids)) {
+			return $this->success_response(array(
+				'users' => array(),
+				'ids' => array()
+			));
+		}
+
+		$users = get_users(array(
+			'include' => $saved_ids,
+			'orderby' => 'display_name',
+			'order' => 'ASC'
+		));
+
+		$formatted = array_map(function($user) {
+			return $this->format_directory_user($user);
+		}, $users);
+
+		return $this->success_response(array(
+			'users' => array_values(array_filter($formatted)),
+			'ids' => array_values($saved_ids)
+		));
+	}
+
+	/**
+	 * Save a profile to the current user's address book.
+	 */
+	public function save_profile($request) {
+		$user_id = get_current_user_id();
+		$target_id = (int) $request->get_param('user_id');
+
+		if (!$target_id) {
+			return $this->error_response('invalid_user', __('Invalid user.', 'zaobank'), 400);
+		}
+
+		if ($target_id === $user_id) {
+			return $this->error_response('invalid_user', __('You cannot save your own profile.', 'zaobank'), 400);
+		}
+
+		$target = get_userdata($target_id);
+		if (!$target) {
+			return $this->error_response('user_not_found', __('User not found.', 'zaobank'), 404);
+		}
+
+		$saved_ids = $this->get_saved_profile_ids($user_id);
+		if (!in_array($target_id, $saved_ids, true)) {
+			$saved_ids[] = $target_id;
+			update_user_meta($user_id, 'zaobank_saved_profiles', array_values($saved_ids));
+		}
+
+		return $this->success_response(array(
+			'message' => __('Profile saved.', 'zaobank'),
+			'ids' => array_values($saved_ids)
+		));
+	}
+
+	/**
+	 * Remove a saved profile from the current user's address book.
+	 */
+	public function remove_saved_profile($request) {
+		$user_id = get_current_user_id();
+		$target_id = (int) $request['id'];
+
+		$saved_ids = $this->get_saved_profile_ids($user_id);
+		$saved_ids = array_values(array_filter($saved_ids, function($id) use ($target_id) {
+			return (int) $id !== $target_id;
+		}));
+
+		update_user_meta($user_id, 'zaobank_saved_profiles', $saved_ids);
+
+		return $this->success_response(array(
+			'message' => __('Profile removed.', 'zaobank'),
+			'ids' => array_values($saved_ids)
+		));
+	}
+
+	/**
 	 * Get current user's profile.
 	 */
 	public function get_profile($request) {
@@ -239,6 +397,11 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			update_user_meta($user_id, 'user_availability', sanitize_text_field($params['user_availability']));
 		}
 
+		if (isset($params['user_available_for_requests'])) {
+			$available = (int) $params['user_available_for_requests'] ? 1 : 0;
+			update_user_meta($user_id, 'user_available_for_requests', $available);
+		}
+
 		if (isset($params['user_bio'])) {
 			update_user_meta($user_id, 'user_bio', sanitize_textarea_field($params['user_bio']));
 		}
@@ -250,6 +413,11 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		if (isset($params['user_profile_tags']) && is_array($params['user_profile_tags'])) {
 			$sanitized_tags = array_map('sanitize_key', $params['user_profile_tags']);
 			update_user_meta($user_id, 'user_profile_tags', $sanitized_tags);
+		}
+
+		if (isset($params['user_skill_tags']) && is_array($params['user_skill_tags'])) {
+			$sanitized_tags = array_map('sanitize_key', $params['user_skill_tags']);
+			update_user_meta($user_id, 'user_skill_tags', $sanitized_tags);
 		}
 
 		if (isset($params['user_contact_preferences']) && is_array($params['user_contact_preferences'])) {
@@ -302,16 +470,9 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		}
 
 		$current_user_id = get_current_user_id();
-		$roles = get_option('zaobank_message_search_roles', array('member'));
-		$roles = apply_filters('zaobank_message_search_roles', $roles);
-		$valid_roles = array();
-		foreach ((array) $roles as $role) {
-			if (wp_roles()->is_role($role)) {
-				$valid_roles[] = $role;
-			}
-		}
+		$valid_roles = ZAOBank_Security::get_member_access_roles();
 
-		if (empty($roles) || empty($valid_roles)) {
+		if (empty($valid_roles)) {
 			return $this->success_response(array('users' => array()));
 		}
 
@@ -340,6 +501,139 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		}
 
 		return $this->success_response(array('users' => $users));
+	}
+
+	/**
+	 * Get community directory users.
+	 */
+	public function get_community_users($request) {
+		$search = trim(sanitize_text_field((string) $request->get_param('q')));
+		$skill = trim(sanitize_text_field((string) $request->get_param('skill')));
+		$region = (int) $request->get_param('region');
+		$skill_tags = $request->get_param('skill_tags');
+		$profile_tags = $request->get_param('profile_tags');
+		$sort = sanitize_key($request->get_param('sort') ?: 'recent');
+		$page = max(1, (int) $request->get_param('page'));
+		$per_page = (int) $request->get_param('per_page');
+
+		if ($per_page < 1) {
+			$per_page = 12;
+		}
+		if ($per_page > 50) {
+			$per_page = 50;
+		}
+
+		$valid_roles = ZAOBank_Security::get_member_access_roles();
+
+		if (empty($valid_roles)) {
+			return $this->success_response(array('users' => array(), 'total' => 0, 'pages' => 0));
+		}
+
+		$meta_query = array('relation' => 'AND');
+
+		$availability_clause = array(
+			'relation' => 'OR',
+			array(
+				'key' => 'user_available_for_requests',
+				'compare' => 'NOT EXISTS'
+			),
+			array(
+				'key' => 'user_available_for_requests',
+				'value' => '1',
+				'compare' => '='
+			)
+		);
+		$meta_query[] = $availability_clause;
+
+		if ($region) {
+			$meta_query[] = array(
+				'key' => 'user_primary_region',
+				'value' => $region,
+				'compare' => '='
+			);
+		}
+
+		if ($skill !== '') {
+			$meta_query[] = array(
+				'relation' => 'OR',
+				array(
+					'key' => 'user_skills',
+					'value' => $skill,
+					'compare' => 'LIKE'
+				),
+				array(
+					'key' => 'user_skill_tags',
+					'value' => $skill,
+					'compare' => 'LIKE'
+				)
+			);
+		}
+
+		if (!empty($skill_tags)) {
+			if (!is_array($skill_tags)) {
+				$skill_tags = explode(',', (string) $skill_tags);
+			}
+
+			$skill_tags = array_filter(array_map('sanitize_key', (array) $skill_tags));
+			foreach ($skill_tags as $tag) {
+				$meta_query[] = array(
+					'key' => 'user_skill_tags',
+					'value' => '"' . $tag . '"',
+					'compare' => 'LIKE'
+				);
+			}
+		}
+
+		if (!empty($profile_tags)) {
+			if (!is_array($profile_tags)) {
+				$profile_tags = explode(',', (string) $profile_tags);
+			}
+
+			$profile_tags = array_filter(array_map('sanitize_key', (array) $profile_tags));
+			foreach ($profile_tags as $tag) {
+				$meta_query[] = array(
+					'key' => 'user_profile_tags',
+					'value' => '"' . $tag . '"',
+					'compare' => 'LIKE'
+				);
+			}
+		}
+
+		$args = array(
+			'number' => $per_page,
+			'paged' => $page,
+			'role__in' => $valid_roles,
+			'meta_query' => $meta_query,
+			'exclude' => array(get_current_user_id())
+		);
+
+		if ($search !== '') {
+			$args['search'] = '*' . $search . '*';
+			$args['search_columns'] = array('display_name', 'user_login', 'user_email');
+		}
+
+		if ($sort === 'name') {
+			$args['orderby'] = 'display_name';
+			$args['order'] = 'ASC';
+		} else {
+			$args['orderby'] = 'registered';
+			$args['order'] = 'DESC';
+		}
+
+		$user_query = new WP_User_Query($args);
+		$users = array_map(function($user) {
+			return $this->format_directory_user($user);
+		}, $user_query->get_results());
+		$users = array_values(array_filter($users));
+
+		$total = (int) $user_query->get_total();
+		$pages = $per_page ? (int) ceil($total / $per_page) : 1;
+
+		return $this->success_response(array(
+			'users' => $users,
+			'total' => $total,
+			'pages' => $pages
+		));
 	}
 
 	/**
@@ -414,9 +708,65 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 	}
 
 	/**
+	 * Get saved profile IDs for a user.
+	 */
+	private function get_saved_profile_ids($user_id) {
+		$saved_ids = get_user_meta($user_id, 'zaobank_saved_profiles', true);
+		if (!is_array($saved_ids)) {
+			return array();
+		}
+
+		$saved_ids = array_filter(array_map('intval', $saved_ids));
+		$saved_ids = array_values(array_unique($saved_ids));
+
+		return $saved_ids;
+	}
+
+	/**
+	 * Format a user for directory/address book cards.
+	 */
+	private function format_directory_user($user) {
+		if (!$user) {
+			return null;
+		}
+
+		$region_id = get_user_meta($user->ID, 'user_primary_region', true);
+		$region_data = null;
+		if ($region_id) {
+			$region = get_term($region_id, 'zaobank_region');
+			if ($region && !is_wp_error($region)) {
+				$region_data = array(
+					'id' => $region->term_id,
+					'name' => $region->name,
+					'slug' => $region->slug
+				);
+			}
+		}
+
+		$available_raw = get_user_meta($user->ID, 'user_available_for_requests', true);
+		$available_for_requests = ($available_raw === '' || $available_raw === null) ? true : (bool) $available_raw;
+
+		return array(
+			'id' => $user->ID,
+			'name' => $user->display_name,
+			'display_name' => $user->display_name,
+			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 64),
+			'skills' => get_user_meta($user->ID, 'user_skills', true),
+			'skill_tags' => get_user_meta($user->ID, 'user_skill_tags', true),
+			'availability' => get_user_meta($user->ID, 'user_availability', true),
+			'available_for_requests' => $available_for_requests,
+			'profile_tags' => get_user_meta($user->ID, 'user_profile_tags', true),
+			'primary_region' => $region_data
+		);
+	}
+
+	/**
 	 * Format user profile data.
 	 */
 	private function format_user_profile($user, $public_only = false) {
+		$available_raw = get_user_meta($user->ID, 'user_available_for_requests', true);
+		$available_for_requests = ($available_raw === '' || $available_raw === null) ? true : (bool) $available_raw;
+
 		$profile = array(
 			'id' => $user->ID,
 			'name' => $user->display_name,
@@ -424,7 +774,9 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'email' => $public_only ? null : $user->user_email,
 			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 96),
 			'skills' => get_user_meta($user->ID, 'user_skills', true),
+			'skill_tags' => get_user_meta($user->ID, 'user_skill_tags', true),
 			'availability' => get_user_meta($user->ID, 'user_availability', true),
+			'available_for_requests' => $available_for_requests,
 			'bio' => get_user_meta($user->ID, 'user_bio', true),
 			'profile_tags' => get_user_meta($user->ID, 'user_profile_tags', true),
 			'registered' => $user->user_registered

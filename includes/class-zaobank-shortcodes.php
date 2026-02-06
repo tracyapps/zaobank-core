@@ -29,6 +29,7 @@ class ZAOBank_Shortcodes {
 		add_shortcode('zaobank_profile_edit', array($this, 'render_profile_edit'));
 		add_shortcode('zaobank_messages', array($this, 'render_messages'));
 		add_shortcode('zaobank_conversation', array($this, 'render_conversation'));
+		add_shortcode('zaobank_community', array($this, 'render_community'));
 		add_shortcode('zaobank_exchanges', array($this, 'render_exchanges'));
 		add_shortcode('zaobank_appreciations', array($this, 'render_appreciations'));
 	}
@@ -159,6 +160,21 @@ class ZAOBank_Shortcodes {
 		}
 
 		return $this->load_template('messages');
+	}
+
+	/**
+	 * Render community template.
+	 */
+	public function render_community($atts) {
+		if (!is_user_logged_in()) {
+			return $this->render_login_required(__('Please log in to view the community.', 'zaobank'));
+		}
+
+		$atts = shortcode_atts(array(
+			'view' => isset($_GET['view']) ? sanitize_key($_GET['view']) : 'community'
+		), $atts);
+
+		return $this->load_template('community', $atts);
 	}
 
 	/**
@@ -337,6 +353,7 @@ class ZAOBank_Shortcodes {
 			'jobs' => 'timebank-jobs',
 			'job_form' => 'timebank-new-job',
 			'my_jobs' => 'timebank-my-jobs',
+			'community' => 'timebank-community',
 			'profile' => 'timebank-profile',
 			'profile_edit' => 'timebank-profile-edit',
 			'messages' => 'timebank-messages',
@@ -367,6 +384,7 @@ class ZAOBank_Shortcodes {
 			'job-single'    => __('Single job detail view', 'zaobank'),
 			'job-form'      => __('Create or edit job form', 'zaobank'),
 			'my-jobs'       => __('User\'s posted and claimed jobs', 'zaobank'),
+			'community'     => __('Community directory with filters and requests', 'zaobank'),
 			'profile'       => __('User profile view', 'zaobank'),
 			'profile-edit'  => __('Profile edit form', 'zaobank'),
 			'messages'      => __('Conversations list', 'zaobank'),

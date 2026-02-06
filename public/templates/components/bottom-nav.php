@@ -11,6 +11,7 @@ if (!defined('ABSPATH')) {
 }
 
 $urls = ZAOBank_Shortcodes::get_page_urls();
+$community_url = isset($urls['community']) ? $urls['community'] : (isset($urls['messages']) ? $urls['messages'] : '#');
 $unread_count = ZAOBank_Shortcodes::get_unread_message_count();
 $current_url = trailingslashit(get_permalink());
 
@@ -55,18 +56,16 @@ foreach ($urls as $key => $url) {
 		<span class="zaobank-nav-label"><?php _e('New', 'zaobank'); ?></span>
 	</a>
 
-	<a href="<?php echo esc_url($urls['messages']); ?>"
-	   class="zaobank-nav-item <?php echo $active === 'messages' ? 'active' : ''; ?>"
-	   aria-label="<?php esc_attr_e('Messages', 'zaobank'); ?>">
+	<a href="<?php echo esc_url($community_url); ?>"
+	   class="zaobank-nav-item <?php echo $active === 'community' ? 'active' : ''; ?>"
+	   aria-label="<?php esc_attr_e('Community', 'zaobank'); ?>">
 		<svg class="zaobank-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+			<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+			<circle cx="8.5" cy="7" r="4"/>
+			<path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+			<path d="M16 3.13a4 4 0 0 1 0 7.75"/>
 		</svg>
-		<span class="zaobank-nav-label"><?php _e('Messages', 'zaobank'); ?></span>
-		<?php if ($unread_count > 0) : ?>
-			<span class="zaobank-nav-badge" data-unread-count="<?php echo (int) $unread_count; ?>" aria-label="<?php echo esc_attr(sprintf(_n('%d unread message', '%d unread messages', $unread_count, 'zaobank'), $unread_count)); ?>">
-				<?php echo $unread_count > 99 ? '99+' : $unread_count; ?>
-			</span>
-		<?php endif; ?>
+		<span class="zaobank-nav-label"><?php _e('Community', 'zaobank'); ?></span>
 	</a>
 
 	<a href="<?php echo esc_url($urls['profile']); ?>"

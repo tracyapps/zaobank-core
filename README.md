@@ -84,6 +84,7 @@ Create WordPress pages with shortcodes for the user-facing interface. You can or
 | Browse Jobs | `[zaobank_jobs]` |
 | Post a Job | `[zaobank_job_form]` |
 | My Jobs | `[zaobank_my_jobs]` |
+| Community | `[zaobank_community]` |
 | Profile | `[zaobank_profile]` |
 | Edit Profile | `[zaobank_profile_edit]` |
 | Messages | `[zaobank_messages]` |
@@ -149,10 +150,14 @@ GET    /job-types            - List all job type terms
 GET    /me/balance           - Get current user's time balance
 GET    /me/exchanges         - Get current user's exchange history (optional `filter=all|earned|spent`)
 GET    /me/worked-with       - Get people the user has worked with (exchange summary + latest private note)
+GET    /me/saved-profiles    - Get saved profiles (address book)
+POST   /me/saved-profiles    - Save a profile to your address book
+DELETE /me/saved-profiles/{id} - Remove a saved profile
 GET    /me/profile           - Get current user's profile
 PUT    /me/profile           - Update current user's profile
 GET    /me/statistics        - Get current user's statistics
 GET    /users/{id}           - Get user's public profile
+GET    /community/users      - Community directory (filters: `q`, `skill`, `skill_tags`, `region`, `sort`, `page`, `per_page`)
 ```
 
 ### Regions
@@ -336,7 +341,7 @@ fetch('/wp-json/zaobank/v1/users/search?q=jane', {
   .then(data => console.log('Matches:', data.users));
 ```
 
-Search results are limited to roles configured in **Settings → ZAO Bank → Message Search Roles**.
+Search results are limited to roles configured in **Settings → ZAO Bank → Member Access Roles**.
 
 ### Mark a Message as Read
 
@@ -361,6 +366,7 @@ The plugin registers two ACF field groups:
 - Completed At (datetime)
 - Visibility (select)
 - Location (text)
+- Virtual Option (true/false)
 - Skills Required (text)
 - Preferred Date (date)
 - Flexible Timing (true/false)
@@ -368,10 +374,11 @@ The plugin registers two ACF field groups:
 ### User Profile
 - Profile Image (image, return format: ID) - Custom profile photo, replaces Gravatar
 - Skills I Can Offer (textarea)
+- Skill Tags (checkbox)
 - Availability (text)
 - Bio (textarea)
 - Primary Region (taxonomy)
-- Profile Tags (checkbox)
+- Personality Tags (checkbox)
 - Contact Preferences (checkbox) - Email, Phone, Text, Signal, Discord, ZAO Bank Messages
 - Phone Number (text)
 - Discord User ID (text) - Links to `https://discord.com/users/{id}` on profile
@@ -466,6 +473,7 @@ Then edit the theme copy to customize the layout while keeping the data attribut
 | `job-single.php` | Single job detail view |
 | `job-form.php` | Create/edit job form |
 | `my-jobs.php` | User's posted and claimed jobs |
+| `community.php` | Community directory + address book |
 | `profile.php` | User profile view |
 | `profile-edit.php` | Profile edit form |
 | `messages.php` | Conversations list / job updates view |
@@ -520,6 +528,7 @@ add_filter('zaobank_page_slugs', function($slugs) {
         'jobs'          => 'app/jobs',
         'job_form'      => 'app/new-job',
         'my_jobs'       => 'app/my-jobs',
+        'community'     => 'app/community',
         'profile'       => 'app/profile',
         'profile_edit'  => 'app/profile-edit',
         'messages'      => 'app/messages',
@@ -551,6 +560,8 @@ get_header('app');  // Your custom app header
 zaobank_bottom_nav();
 get_footer('app');
 ```
+
+**Note:** In the ZAO theme we also support a hybrid pattern: if the page content is empty and the page slug matches a ZAOBank page (e.g., `/app/community`), the app template auto-renders the matching ZAOBank template. Shortcodes still work normally, so you can choose either method.
 
 **Option 2: Custom Template with Direct Rendering**
 
@@ -682,9 +693,11 @@ Available via Settings → ZAO Bank:
 - **Auto-hide Flagged Content** - Automatically hide flagged content
 - **Flag Threshold** - Number of flags before auto-hiding
 - **Appreciation Tags** - Positive tags for appreciations
+- **Skill Tags** - Tags used for community skill filters and profile skill tags
+- **Personality Tags** - Tags used to describe working style on profiles
 - **Private Note Tags** - Memory aid tags for private notes (used in “People You’ve Worked With” notes)
 - **Flag Reasons** - Available reasons for flagging content
-- **Message Search Roles** - Roles allowed to appear in “Start a new message” search
+- **Member Access Roles** - Roles allowed to access member-only actions (messaging, jobs, requests, profile edits)
 
 ## Troubleshooting
 
@@ -720,6 +733,7 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 | `[zaobank_job]` | Single job detail view (standalone) | `id` or `?job_id=` URL param |
 | `[zaobank_job_form]` | Create/edit job form | `id` for edit mode |
 | `[zaobank_my_jobs]` | User's posted and claimed jobs | - |
+| `[zaobank_community]` | Community directory + address book (saved profiles + worked-with) | - |
 | `[zaobank_profile]` | User profile view | `user_id` (optional, defaults to current user) |
 | `[zaobank_profile_edit]` | Profile edit form | - |
 | `[zaobank_messages]` | Conversations list; renders conversation view when `?user_id=` is in the URL, job updates view when `?view=updates` | - |
@@ -736,6 +750,7 @@ Create WordPress pages for each section:
 - `/timebank-jobs/` → `[zaobank_jobs]` (also handles single job view via `?job_id=X`)
 - `/timebank-new-job/` → `[zaobank_job_form]`
 - `/timebank-my-jobs/` → `[zaobank_my_jobs]`
+- `/timebank-community/` → `[zaobank_community]`
 - `/timebank-profile/` → `[zaobank_profile]`
 - `/timebank-profile-edit/` → `[zaobank_profile_edit]`
 - `/timebank-messages/` → `[zaobank_messages]` (also handles `?user_id=X` for conversation view and `?view=updates` for job updates)
@@ -752,6 +767,7 @@ Create an `/app/` parent page with child pages. This enables easy AAM protection
   /app/jobs/             [zaobank_jobs] (also handles /app/jobs/?job_id=X)
   /app/new-job/          [zaobank_job_form]
   /app/my-jobs/          [zaobank_my_jobs]
+  /app/community/        [zaobank_community]
   /app/profile/          [zaobank_profile]
   /app/profile-edit/     [zaobank_profile_edit]
   /app/messages/         [zaobank_messages]

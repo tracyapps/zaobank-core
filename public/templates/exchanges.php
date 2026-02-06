@@ -10,12 +10,22 @@ if (!defined('ABSPATH')) {
 }
 
 $urls = ZAOBank_Shortcodes::get_page_urls();
+$community_url = isset($urls['community']) ? $urls['community'] : (isset($urls['messages']) ? $urls['messages'] : '#');
 ?>
 
 <div class="zaobank-container zaobank-exchanges-page" data-component="exchanges">
 
 	<header class="zaobank-page-header">
 		<h1 class="zaobank-page-title"><?php _e('Exchange History', 'zaobank'); ?></h1>
+		<?php
+		$tabs = array(
+			array('label' => __('community', 'zaobank'), 'url' => $community_url),
+			array('label' => __('exchanges', 'zaobank'), 'url' => $urls['exchanges'], 'current' => true),
+			array('label' => __('messages', 'zaobank'), 'url' => $urls['messages']),
+			array('label' => __('job updates', 'zaobank'), 'url' => $urls['messages'] . '?view=updates'),
+		);
+		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
+		?>
 	</header>
 
 	<!-- Balance Summary -->
@@ -67,30 +77,6 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 			<?php _e('Browse Jobs', 'zaobank'); ?>
 		</a>
 	</div>
-
-	<!-- People Worked With -->
-	<section class="zaobank-worked-with-section">
-		<header class="zaobank-section-header">
-			<h2 class="zaobank-section-title"><?php _e('People You\'ve Worked With', 'zaobank'); ?></h2>
-			<p class="zaobank-form-hint"><?php _e('Private notes are for your reference only and are never visible to anyone else.', 'zaobank'); ?></p>
-		</header>
-
-		<div class="zaobank-worked-with-list" data-loading="true">
-			<div class="zaobank-loading-state">
-				<div class="zaobank-spinner"></div>
-				<p><?php _e('Loading people...', 'zaobank'); ?></p>
-			</div>
-		</div>
-
-		<div class="zaobank-empty-state" data-empty="worked-with" style="display: none;">
-			<svg class="zaobank-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-				<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-				<circle cx="12" cy="7" r="4"/>
-			</svg>
-			<h3><?php _e('No history yet', 'zaobank'); ?></h3>
-			<p><?php _e('Once you complete exchanges, people you\'ve worked with will show up here.', 'zaobank'); ?></p>
-		</div>
-	</section>
 
 </div>
 
@@ -175,76 +161,6 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 			</div>
 		</div>
 		{{/unless}}
-	</div>
-</div>
-</script>
-
-<script type="text/template" id="zaobank-worked-with-item-template">
-<div class="zaobank-card zaobank-worked-with-card" data-user-id="{{other_user_id}}">
-	<div class="zaobank-card-body">
-		<div class="zaobank-worked-with-header">
-			<div class="zaobank-worked-with-user">
-				<img src="{{other_user_avatar}}" alt="" class="zaobank-avatar">
-				<div>
-					<span class="zaobank-worked-with-name">{{other_user_name}}</span>
-					<span class="zaobank-worked-with-meta">
-						<?php _e('You completed', 'zaobank'); ?> {{jobs_provided}} <?php _e('jobs for them', 'zaobank'); ?>
-						• <?php _e('They completed', 'zaobank'); ?> {{jobs_received}} <?php _e('jobs for you', 'zaobank'); ?>
-					</span>
-				</div>
-			</div>
-			<a href="<?php echo esc_url($urls['messages']); ?>?user_id={{other_user_id}}" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm">
-				<?php _e('Send Message', 'zaobank'); ?>
-			</a>
-		</div>
-
-		<div class="zaobank-worked-with-summary">
-			<span><?php _e('Total exchanges:', 'zaobank'); ?> {{total_exchanges}}</span>
-			<span><?php _e('Total hours:', 'zaobank'); ?> {{total_hours}}</span>
-			{{#if last_exchange_at}}
-			<span><?php _e('Last exchange:', 'zaobank'); ?> {{last_exchange_at}}</span>
-			{{/if}}
-		</div>
-
-		<div class="zaobank-worked-with-notes">
-			{{#if has_latest_note}}
-			<div class="zaobank-worked-with-latest" data-role="latest-note-wrapper">
-				<span class="zaobank-tag" data-role="latest-note-tag">{{latest_note_tag_label}}</span>
-				{{#if latest_note_text}}
-				<p data-role="latest-note-text">{{latest_note_text}}</p>
-				{{/if}}
-			</div>
-			{{/if}}
-
-			{{#unless has_latest_note}}
-			<div class="zaobank-worked-with-latest" data-role="latest-note-wrapper" hidden>
-				<span class="zaobank-tag" data-role="latest-note-tag"></span>
-				<p data-role="latest-note-text"></p>
-			</div>
-			{{/unless}}
-
-			<div class="zaobank-form-group">
-				<label class="zaobank-label"><?php _e('Private note tag', 'zaobank'); ?></label>
-				<select name="note_tag" class="zaobank-select">
-					<option value=""><?php _e('Select a tag', 'zaobank'); ?></option>
-					{{#each note_tags}}
-					<option value="{{this.slug}}">{{this.label}}</option>
-					{{/each}}
-				</select>
-				{{#unless has_note_tags}}
-				<p class="zaobank-form-hint"><?php _e('No private note tags configured.', 'zaobank'); ?></p>
-				{{/unless}}
-			</div>
-
-			<div class="zaobank-form-group">
-				<label class="zaobank-label" for="note-text-{{other_user_id}}"><?php _e('Note (optional, only visible to you)', 'zaobank'); ?></label>
-				<textarea id="note-text-{{other_user_id}}" name="note_text" class="zaobank-textarea" rows="3" placeholder="<?php esc_attr_e('Add a private reminder...', 'zaobank'); ?>"></textarea>
-			</div>
-
-			<button type="button" class="zaobank-btn zaobank-btn-primary zaobank-btn-sm zaobank-save-note">
-				<?php _e('Save Note', 'zaobank'); ?>
-			</button>
-		</div>
 	</div>
 </div>
 </script>

@@ -85,6 +85,29 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					<span class="zaobank-form-hint"><?php _e('e.g., gardening, tutoring, cooking, computer help', 'zaobank'); ?></span>
 				</div>
 
+				<!-- Skill Tags -->
+				<div class="zaobank-form-group">
+					<label class="zaobank-label"><?php _e('Skill Tags', 'zaobank'); ?></label>
+					<div class="zaobank-checkbox-group" data-field="user_skill_tags">
+						<?php
+						$skills_field = acf_get_field('field_user_skill_tags');
+						$skill_tags = $skills_field ? $skills_field['choices'] : array();
+						if (!empty($skill_tags)) :
+							foreach ($skill_tags as $value => $label) :
+						?>
+							<label class="zaobank-checkbox-label">
+								<input type="checkbox" name="user_skill_tags[]" value="<?php echo esc_attr($value); ?>">
+								<span><?php echo esc_html($label); ?></span>
+							</label>
+						<?php
+							endforeach;
+						else :
+						?>
+							<p class="zaobank-form-hint"><?php _e('No skill tags configured yet.', 'zaobank'); ?></p>
+						<?php endif; ?>
+					</div>
+				</div>
+
 				<!-- Availability -->
 				<div class="zaobank-form-group">
 					<label for="profile-availability" class="zaobank-label">
@@ -97,6 +120,14 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					       placeholder="<?php esc_attr_e('e.g., Weekday evenings, Saturday mornings', 'zaobank'); ?>">
 				</div>
 
+				<div class="zaobank-form-group">
+					<label class="zaobank-checkbox-label">
+						<input type="checkbox" name="user_available_for_requests" value="1" checked>
+						<span><?php _e('Available for skill requests', 'zaobank'); ?></span>
+					</label>
+					<p class="zaobank-form-hint"><?php _e('Turn this off to hide your profile from community requests.', 'zaobank'); ?></p>
+				</div>
+
 				<!-- Primary Region -->
 				<div class="zaobank-form-group">
 					<label for="profile-region" class="zaobank-label">
@@ -107,20 +138,24 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					</select>
 				</div>
 
-				<!-- Profile Tags -->
+				<!-- Personality Tags -->
 				<div class="zaobank-form-group">
-					<label class="zaobank-label"><?php _e('Profile Tags', 'zaobank'); ?></label>
+					<label class="zaobank-label"><?php _e('Personality Tags', 'zaobank'); ?></label>
 					<div class="zaobank-checkbox-group" data-field="user_profile_tags">
 						<?php
 						$tags_field = acf_get_field('field_user_profile_tags');
 						$profile_tags = $tags_field ? $tags_field['choices'] : array();
-						foreach ($profile_tags as $value => $label) :
-						?>
-							<label class="zaobank-checkbox-label">
-								<input type="checkbox" name="user_profile_tags[]" value="<?php echo esc_attr($value); ?>">
-								<span><?php echo esc_html($label); ?></span>
-							</label>
-						<?php endforeach; ?>
+						if (!empty($profile_tags)) :
+							foreach ($profile_tags as $value => $label) :
+							?>
+								<label class="zaobank-checkbox-label">
+									<input type="checkbox" name="user_profile_tags[]" value="<?php echo esc_attr($value); ?>">
+									<span><?php echo esc_html($label); ?></span>
+								</label>
+							<?php endforeach; ?>
+						<?php else : ?>
+							<p class="zaobank-form-hint"><?php _e('No personality tags configured yet.', 'zaobank'); ?></p>
+						<?php endif; ?>
 					</div>
 				</div>
 

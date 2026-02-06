@@ -55,7 +55,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/jobs/(?P<id>[\d]+)/claim', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'claim_job'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'id' => array(
 					'validate_callback' => function($param) {
@@ -69,7 +69,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/jobs/(?P<id>[\d]+)/complete', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'complete_job'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'id' => array(
 					'validate_callback' => function($param) {
@@ -83,7 +83,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/jobs/(?P<id>[\d]+)/release', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'release_job'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'id' => array(
 					'validate_callback' => function($param) {
@@ -101,7 +101,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/jobs/mine', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'get_my_jobs'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		// List job types
@@ -174,6 +174,29 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 					'compare' => 'EXISTS'
 				)
 			);
+		}
+
+		// Search by keyword
+		$search = $request->get_param('search');
+		if (!empty($search)) {
+			$args['s'] = sanitize_text_field($search);
+		}
+
+		// Sort
+		$sort = sanitize_key($request->get_param('sort') ?: 'recent');
+		if ($sort === 'oldest') {
+			$args['orderby'] = 'date';
+			$args['order'] = 'ASC';
+		} elseif ($sort === 'hours_asc' || $sort === 'hours_desc') {
+			$args['meta_key'] = 'hours';
+			$args['orderby'] = 'meta_value_num';
+			$args['order'] = ($sort === 'hours_asc') ? 'ASC' : 'DESC';
+		} elseif ($sort === 'title') {
+			$args['orderby'] = 'title';
+			$args['order'] = 'ASC';
+		} else {
+			$args['orderby'] = 'date';
+			$args['order'] = 'DESC';
 		}
 
 		$jobs = ZAOBank_Jobs::get_available_jobs($args);
@@ -350,10 +373,16 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		}
 
 		// Update meta fields
-		$meta_fields = array('hours', 'location', 'skills_required', 'preferred_date', 'flexible_timing');
+		$meta_fields = array('hours', 'location', 'skills_required', 'preferred_date', 'flexible_timing', 'virtual_ok');
 		foreach ($meta_fields as $field) {
 			if (isset($data[$field])) {
-				$value = $field === 'hours' ? floatval($data[$field]) : $data[$field];
+				if ($field === 'hours') {
+					$value = floatval($data[$field]);
+				} elseif ($field === 'flexible_timing' || $field === 'virtual_ok') {
+					$value = (int) (bool) $data[$field];
+				} else {
+					$value = $data[$field];
+				}
 				update_post_meta($job_id, $field, $value);
 			}
 		}
@@ -467,7 +496,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 	 * Permission check for creating jobs.
 	 */
 	public function create_job_permissions_check($request) {
-		$auth_check = $this->check_authentication($request);
+		$auth_check = $this->check_member_access($request);
 		if (is_wp_error($auth_check)) {
 			return $auth_check;
 		}
@@ -487,7 +516,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 	 * Permission check for updating jobs.
 	 */
 	public function update_job_permissions_check($request) {
-		$auth_check = $this->check_authentication($request);
+		$auth_check = $this->check_member_access($request);
 		if (is_wp_error($auth_check)) {
 			return $auth_check;
 		}
@@ -571,6 +600,10 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 			'location' => array(
 				'type' => 'string',
 				'description' => __('Job location', 'zaobank')
+			),
+			'virtual_ok' => array(
+				'type' => 'boolean',
+				'description' => __('Whether the job can be done virtually.', 'zaobank')
 			),
 			'regions' => array(
 				'type' => 'array',

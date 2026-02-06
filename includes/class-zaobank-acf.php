@@ -82,6 +82,15 @@ class ZAOBank_ACF {
 					'required' => 0,
 				),
 				array(
+					'key' => 'field_job_virtual_ok',
+					'label' => 'Virtual Option',
+					'name' => 'virtual_ok',
+					'type' => 'true_false',
+					'instructions' => 'Can this job be done virtually?',
+					'default_value' => 0,
+					'ui' => 1,
+				),
+				array(
 					'key' => 'field_job_skills',
 					'label' => 'Skills Required',
 					'name' => 'skills_required',
@@ -130,6 +139,14 @@ class ZAOBank_ACF {
 	 * Register user profile ACF fields.
 	 */
 	private function register_user_profile_fields() {
+		$profile_tag_choices = $this->build_tag_choices(
+			get_option('zaobank_profile_tags', array()),
+			$this->get_default_profile_tag_labels()
+		);
+		$skill_tag_choices = $this->build_tag_choices(
+			get_option('zaobank_skill_tags', array())
+		);
+
 		acf_add_local_field_group(array(
 			'key' => 'group_zaobank_user_profile',
 			'title' => 'Time Bank Profile',
@@ -156,6 +173,15 @@ class ZAOBank_ACF {
 					'instructions' => 'What skills or services can you provide to the community?',
 					'required' => 0,
 					'rows' => 4,
+				),
+				array(
+					'key' => 'field_user_skill_tags',
+					'label' => 'Skill Tags',
+					'name' => 'user_skill_tags',
+					'type' => 'checkbox',
+					'instructions' => 'Select tags that describe the skills you offer (used in community filters).',
+					'choices' => $skill_tag_choices,
+					'layout' => 'vertical',
 				),
 				array(
 					'key' => 'field_user_availability',
@@ -186,32 +212,11 @@ class ZAOBank_ACF {
 				),
 				array(
 					'key' => 'field_user_profile_tags',
-					'label' => 'Profile Tags',
+					'label' => 'Personality Tags',
 					'name' => 'user_profile_tags',
 					'type' => 'checkbox',
-					'instructions' => 'Select tags that describe you (visible to community)',
-					'choices' => array(
-						'reliable' => 'Reliable',
-						'flexible' => 'Flexible Schedule',
-						'quick-responder' => 'Quick Responder',
-						'busy-but-reliable' => 'Busy, But Reliable',
-						'detail-oriented' => 'Detail-Oriented',
-						'big-picture' => 'Big-Picture Thinker',
-						'team-player' => 'Team Player/Collaborator',
-						'creative' => 'Creative',
-						'technical' => 'Technical',
-						'word-person' => 'Word Person: Writer and/or Editor',
-						'type-a' => '"Type A" Person (order/organization)',
-						'physical-tasks' => 'Enjoys Physical Tasks',
-						'clear-instructions' => 'Needs Clear Instructions',
-						'good-with-ambiguity' => 'Good With Ambiguity',
-						'neurodivergent' => 'Neurodivergent',
-						'talkative'	=> 'Talkative',
-						'needs-music-noise'	=> 'Needs Music/Noise',
-						'prefers-quiet'	=> 'Prefers Quiet',
-						'visual-learner' => 'Visual Learner',
-						'prefers-written-instructions' => 'Prefers Written Instructions',
-					),
+					'instructions' => 'Select tags that describe your working style (visible on your profile).',
+					'choices' => $profile_tag_choices,
 					'layout' => 'vertical',
 				),
 				array(
@@ -261,5 +266,67 @@ class ZAOBank_ACF {
 			'position' => 'normal',
 			'style' => 'default',
 		));
+	}
+
+	/**
+	 * Build a slug => label map for checkbox choices.
+	 */
+	private function build_tag_choices($raw_tags, $fallback = array()) {
+		$tags = is_array($raw_tags) ? $raw_tags : array();
+		$tags = array_filter(array_map('trim', $tags));
+
+		if (empty($tags) && !empty($fallback)) {
+			$is_assoc = array_keys($fallback) !== range(0, count($fallback) - 1);
+			if ($is_assoc) {
+				return $fallback;
+			}
+			$tags = $fallback;
+		}
+
+		$choices = array();
+		foreach ($tags as $tag) {
+			if (!is_string($tag)) {
+				continue;
+			}
+			$label = trim($tag);
+			if ($label === '') {
+				continue;
+			}
+			$slug = sanitize_key($label);
+			if ($slug === '') {
+				continue;
+			}
+			$choices[$slug] = $label;
+		}
+
+		return $choices;
+	}
+
+	/**
+	 * Default profile tag labels (used when settings are empty).
+	 */
+	private function get_default_profile_tag_labels() {
+		return array(
+			'Reliable',
+			'Flexible Schedule',
+			'Quick Responder',
+			'Busy, But Reliable',
+			'Detail-Oriented',
+			'Big-Picture Thinker',
+			'Team Player/Collaborator',
+			'Creative',
+			'Technical',
+			'Word Person: Writer and/or Editor',
+			'"Type A" Person (order/organization)',
+			'Enjoys Physical Tasks',
+			'Needs Clear Instructions',
+			'Good With Ambiguity',
+			'Neurodivergent',
+			'Talkative',
+			'Needs Music/Noise',
+			'Prefers Quiet',
+			'Visual Learner',
+			'Prefers Written Instructions',
+		);
 	}
 }

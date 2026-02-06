@@ -18,6 +18,16 @@ if (isset($_POST['zaobank_save_settings']) && check_admin_referer('zaobank_setti
 		update_option('zaobank_appreciation_tags', $tags);
 	}
 
+	if (isset($_POST['skill_tags'])) {
+		$tags = array_filter(array_map('trim', explode("\n", $_POST['skill_tags'])));
+		update_option('zaobank_skill_tags', $tags);
+	}
+
+	if (isset($_POST['profile_tags'])) {
+		$tags = array_filter(array_map('trim', explode("\n", $_POST['profile_tags'])));
+		update_option('zaobank_profile_tags', $tags);
+	}
+
 	if (isset($_POST['private_note_tags'])) {
 		$tags = array_filter(array_map('trim', explode("\n", $_POST['private_note_tags'])));
 		update_option('zaobank_private_note_tags', $tags);
@@ -49,6 +59,10 @@ $enable_regions = get_option('zaobank_enable_regions', true);
 $auto_hide_flagged = get_option('zaobank_auto_hide_flagged', true);
 $flag_threshold = get_option('zaobank_flag_threshold', 1);
 $appreciation_tags = get_option('zaobank_appreciation_tags', array());
+$skill_tags = get_option('zaobank_skill_tags', array());
+$profile_tags = get_option('zaobank_profile_tags', array());
+$skill_tags = is_array($skill_tags) ? $skill_tags : array();
+$profile_tags = is_array($profile_tags) ? $profile_tags : array();
 $private_note_tags = get_option('zaobank_private_note_tags', array());
 $flag_reasons = get_option('zaobank_flag_reasons', array());
 $message_search_roles = get_option('zaobank_message_search_roles', array('member'));
@@ -95,10 +109,10 @@ $available_roles = get_editable_roles();
 			</tr>
 
 			<tr>
-				<th scope="row"><?php _e('Message Search Roles', 'zaobank'); ?></th>
+				<th scope="row"><?php _e('Member Access Roles', 'zaobank'); ?></th>
 				<td>
 					<fieldset>
-						<legend class="screen-reader-text"><?php _e('Message Search Roles', 'zaobank'); ?></legend>
+						<legend class="screen-reader-text"><?php _e('Member Access Roles', 'zaobank'); ?></legend>
 						<?php foreach ($available_roles as $role_key => $role_info) : ?>
 							<label style="display:block; margin-bottom:6px;">
 								<input type="checkbox"
@@ -109,7 +123,7 @@ $available_roles = get_editable_roles();
 							</label>
 						<?php endforeach; ?>
 					</fieldset>
-					<p class="description"><?php _e('Only users with these roles appear in “Start a new message” search. Leave unchecked to disable search results.', 'zaobank'); ?></p>
+					<p class="description"><?php _e('Only users with these roles can access member-only actions (messaging, jobs, requests, and profile edits). Leaving all unchecked disables member access.', 'zaobank'); ?></p>
 				</td>
 			</tr>
 
@@ -118,6 +132,22 @@ $available_roles = get_editable_roles();
 				<td>
 					<textarea name="appreciation_tags" rows="10" class="large-text code"><?php echo esc_textarea(implode("\n", $appreciation_tags)); ?></textarea>
 					<p class="description"><?php _e('One tag per line. These are positive tags users can use for appreciations.', 'zaobank'); ?></p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row"><?php _e('Skill Tags', 'zaobank'); ?></th>
+				<td>
+					<textarea name="skill_tags" rows="10" class="large-text code"><?php echo esc_textarea(implode("\n", $skill_tags)); ?></textarea>
+					<p class="description"><?php _e('One tag per line. These power the Community filters and skill tags on profiles.', 'zaobank'); ?></p>
+				</td>
+			</tr>
+
+			<tr>
+				<th scope="row"><?php _e('Personality Tags', 'zaobank'); ?></th>
+				<td>
+					<textarea name="profile_tags" rows="10" class="large-text code"><?php echo esc_textarea(implode("\n", $profile_tags)); ?></textarea>
+					<p class="description"><?php _e('One tag per line. These describe working style and appear on profiles only.', 'zaobank'); ?></p>
 				</td>
 			</tr>
 

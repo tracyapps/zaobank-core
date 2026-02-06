@@ -63,6 +63,10 @@ class ZAOBank_Jobs {
 			update_post_meta($job_id, 'flexible_timing', (bool) $data['flexible_timing']);
 		}
 
+		if (isset($data['virtual_ok'])) {
+			update_post_meta($job_id, 'virtual_ok', (int) (bool) $data['virtual_ok']);
+		}
+
 		// Assign regions
 		if (!empty($data['regions']) && is_array($data['regions'])) {
 			wp_set_object_terms($job_id, $data['regions'], 'zaobank_region');
@@ -394,6 +398,7 @@ class ZAOBank_Jobs {
 			'skills_required' => get_post_meta($job_id, 'skills_required', true),
 			'preferred_date' => get_post_meta($job_id, 'preferred_date', true),
 			'flexible_timing' => (bool) get_post_meta($job_id, 'flexible_timing', true),
+			'virtual_ok' => (bool) get_post_meta($job_id, 'virtual_ok', true),
 			'provider_id' => $provider_id ? $provider_id : null,
 			'provider_name' => $provider_id ? get_the_author_meta('display_name', $provider_id) : '',
 			'provider_avatar' => $provider_id ? ZAOBank_Helpers::get_user_avatar_url($provider_id, 48) : '',

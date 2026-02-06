@@ -9,7 +9,7 @@ class ZAOBank_REST_Notes extends ZAOBank_REST_Controller {
 			array(
 				'methods' => WP_REST_Server::READABLE,
 				'callback' => array($this, 'get_notes'),
-				'permission_callback' => array($this, 'check_authentication'),
+				'permission_callback' => array($this, 'check_member_access'),
 				'args' => array(
 					'subject_user_id' => array(
 						'type' => 'integer',
@@ -20,7 +20,7 @@ class ZAOBank_REST_Notes extends ZAOBank_REST_Controller {
 			array(
 				'methods' => WP_REST_Server::CREATABLE,
 				'callback' => array($this, 'create_note'),
-				'permission_callback' => array($this, 'check_authentication'),
+				'permission_callback' => array($this, 'check_member_access'),
 				'args' => array(
 					'subject_user_id' => array(
 						'required' => true,
@@ -43,7 +43,7 @@ class ZAOBank_REST_Notes extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/me/notes/(?P<id>[\d]+)', array(
 			'methods' => WP_REST_Server::DELETABLE,
 			'callback' => array($this, 'delete_note'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'id' => array(
 					'validate_callback' => function($param) {

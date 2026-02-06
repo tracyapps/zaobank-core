@@ -37,6 +37,50 @@ class ZAOBank_Security {
 	}
 
 	/**
+	 * Get roles allowed to access member-only app actions.
+	 */
+	public static function get_member_access_roles() {
+		$roles = get_option('zaobank_message_search_roles', array('member'));
+
+		$roles = apply_filters('zaobank_member_access_roles', $roles);
+		$roles = apply_filters('zaobank_message_search_roles', $roles);
+
+		$valid_roles = array();
+		foreach ((array) $roles as $role) {
+			if (wp_roles()->is_role($role)) {
+				$valid_roles[] = $role;
+			}
+		}
+
+		return array_values(array_unique($valid_roles));
+	}
+
+	/**
+	 * Check if a user has one of the member access roles.
+	 */
+	public static function user_has_member_access($user_id = null) {
+		if (!$user_id) {
+			$user_id = get_current_user_id();
+		}
+
+		if (!$user_id) {
+			return false;
+		}
+
+		$user = get_userdata($user_id);
+		if (!$user || empty($user->roles)) {
+			return false;
+		}
+
+		$allowed_roles = self::get_member_access_roles();
+		if (empty($allowed_roles)) {
+			return false;
+		}
+
+		return (bool) array_intersect($user->roles, $allowed_roles);
+	}
+
+	/**
 	 * Check if user can create jobs.
 	 */
 	public static function can_create_job($user_id = null) {
@@ -156,6 +200,10 @@ class ZAOBank_Security {
 
 		if (isset($data['skills_required'])) {
 			$sanitized['skills_required'] = sanitize_text_field($data['skills_required']);
+		}
+
+		if (isset($data['virtual_ok'])) {
+			$sanitized['virtual_ok'] = (bool) $data['virtual_ok'];
 		}
 
 		if (isset($data['regions']) && is_array($data['regions'])) {

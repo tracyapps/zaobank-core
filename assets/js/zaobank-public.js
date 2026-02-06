@@ -17,7 +17,15 @@
 			currentPage: 1,
 			totalPages: 1,
 			loading: false,
-			filters: {}
+			filters: {},
+			community: {
+				page: 1,
+				totalPages: 1,
+				filters: {},
+				savedIds: [],
+				savedLoaded: false,
+				addressTab: 'worked-with'
+			}
 		},
 
 		init: function() {
@@ -39,12 +47,22 @@
 			// Filters
 			$(document).on('change', '[data-filter="region"]', this.handleRegionFilter.bind(this));
 			$(document).on('input', '[data-filter="search"]', this.debounce(this.handleSearch.bind(this), 300));
+			$(document).on('change', '[data-filter="sort"]', this.handleJobsSortChange.bind(this));
+			$(document).on('change', '[data-filter="per_page"]', this.handleJobsPerPageChange.bind(this));
+
+			// Community filters
+			$(document).on('input', '[data-community-filter="search"]', this.debounce(this.handleCommunityFilterChange.bind(this), 300));
+			$(document).on('input', '[data-community-filter="skill"]', this.debounce(this.handleCommunityFilterChange.bind(this), 300));
+			$(document).on('change', '[data-community-filter="region"], [data-community-filter="sort"], [data-community-filter="per_page"]', this.handleCommunityFilterChange.bind(this));
+			$(document).on('change', '[name="community_skill_tags[]"]', this.handleCommunityFilterChange.bind(this));
 
 			// Tabs
 			$(document).on('click', '.zaobank-tab', this.handleTabClick.bind(this));
+			$(document).on('click', '.zaobank-address-tab', this.handleAddressBookTab.bind(this));
 
 			// Load more
 			$(document).on('click', '[data-action="load-more"]', this.handleLoadMore.bind(this));
+			$(document).on('click', '[data-action="community-load-more"]', this.handleCommunityLoadMore.bind(this));
 
 			// Forms
 			$(document).on('submit', '#zaobank-job-form', this.handleJobFormSubmit.bind(this));
@@ -56,6 +74,11 @@
 			$(document).on('click', '.zaobank-cancel-appreciation', this.handleCancelAppreciation.bind(this));
 			$(document).on('click', '.zaobank-submit-appreciation', this.handleSubmitAppreciation.bind(this));
 			$(document).on('click', '.zaobank-save-note', this.handleSaveNote.bind(this));
+			$(document).on('click', '.zaobank-request-skill', this.handleOpenCommunityRequest.bind(this));
+			$(document).on('click', '.zaobank-cancel-request', this.handleCancelCommunityRequest.bind(this));
+			$(document).on('click', '.zaobank-submit-request', this.handleSubmitCommunityRequest.bind(this));
+			$(document).on('click', '.zaobank-save-profile', this.handleSaveProfile.bind(this));
+			$(document).on('click', '.zaobank-remove-saved', this.handleRemoveSavedProfile.bind(this));
 
 			// Message actions
 			$(document).on('click', '.zaobank-mark-read', this.handleMarkConversationRead.bind(this));
@@ -72,6 +95,7 @@
 				'job-single': this.initJobSingle,
 				'job-form': this.initJobForm,
 				'my-jobs': this.initMyJobs,
+				'community': this.initCommunity,
 				'profile': this.initProfile,
 				'profile-edit': this.initProfileEdit,
 				'messages': this.initMessages,
@@ -193,7 +217,9 @@
 			this.state.filters = {
 				region: '',
 				search: '',
-				job_types: []
+				job_types: [],
+				sort: 'recent',
+				per_page: 12
 			};
 			this.loadJobTypes();
 			this.initFilterPanel();
@@ -269,8 +295,9 @@
 
 			const params = {
 				page: this.state.currentPage,
-				per_page: 12,
-				status: 'available'
+				per_page: this.state.filters.per_page || 12,
+				status: 'available',
+				sort: this.state.filters.sort || 'recent'
 			};
 
 			if (this.state.filters.region) {
@@ -296,6 +323,7 @@
 						$container.empty();
 						$empty.show();
 						$loadMore.hide();
+						$('[data-role="jobs-summary"]').text('Showing 0-0 of 0');
 					}
 					return;
 				}
@@ -311,6 +339,12 @@
 				} else {
 					$container.html(html);
 				}
+
+				const total = response.total || 0;
+				const perPage = params.per_page;
+				const start = total === 0 ? 0 : ((ZAOBank.state.currentPage - 1) * perPage + 1);
+				const end = total === 0 ? 0 : Math.min(total, ZAOBank.state.currentPage * perPage);
+				$('[data-role="jobs-summary"]').text(`Showing ${start}-${end} of ${total}`);
 
 				// Show/hide load more
 				if (ZAOBank.state.currentPage < ZAOBank.state.totalPages) {
@@ -334,7 +368,7 @@
 			const currentUserId = Number(zaobank.userId || 0);
 			const requesterId = Number(job.requester_id || 0);
 			const providerId = Number(job.provider_id || 0);
-			const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
+			const canClaim = zaobank.isLoggedIn && zaobank.hasMemberAccess && !providerId && requesterId !== currentUserId;
 
 			return this.renderTemplate(template, {
 				id: job.id,
@@ -342,6 +376,7 @@
 				excerpt: this.escapeHtml(this.truncate(job.description, 100)),
 				hours: job.hours,
 				location: job.location ? this.escapeHtml(job.location) : '',
+				virtual_ok: !!job.virtual_ok,
 				status_class: status.class,
 				status_label: status.label,
 				requester_id: job.requester_id,
@@ -357,7 +392,7 @@
 			const currentUserId = Number(zaobank.userId || 0);
 			const requesterId = Number(job.requester_id || 0);
 			const providerId = Number(job.provider_id || 0);
-			const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
+			const canClaim = zaobank.isLoggedIn && zaobank.hasMemberAccess && !providerId && requesterId !== currentUserId;
 
 			return `
 				<article class="zaobank-card zaobank-job-card" data-job-id="${job.id}">
@@ -372,6 +407,7 @@
 						<div class="zaobank-job-meta">
 							<span class="zaobank-job-hours">${job.hours} hours</span>
 							${job.location ? `<span class="zaobank-job-location">${this.escapeHtml(job.location)}</span>` : ''}
+							${job.virtual_ok ? `<span class="zaobank-job-virtual">Virtual ok</span>` : ''}
 						</div>
 						<div class="zaobank-job-footer">
 							<div class="zaobank-job-poster">
@@ -399,6 +435,17 @@
 			this.loadJobs();
 		},
 
+		handleJobsSortChange: function(e) {
+			this.state.filters.sort = $(e.currentTarget).val();
+			this.loadJobs();
+		},
+
+		handleJobsPerPageChange: function(e) {
+			const value = parseInt($(e.currentTarget).val(), 10) || 12;
+			this.state.filters.per_page = value;
+			this.loadJobs();
+		},
+
 		handleSearch: function(e) {
 			this.state.filters.search = $(e.currentTarget).val();
 			this.loadJobs();
@@ -408,6 +455,364 @@
 			e.preventDefault();
 			this.state.currentPage++;
 			this.loadJobs(true);
+		},
+
+		// =========================================================================
+		// Community
+		// =========================================================================
+
+		initCommunity: function($container) {
+			const view = $container.data('view') || 'community';
+			this.state.community.page = 1;
+			this.state.community.totalPages = 1;
+			this.state.community.addressTab = 'worked-with';
+			this.initCommunityFilterPanel();
+
+			if (zaobank.hasMemberAccess) {
+				this.loadSavedProfiles(false);
+			}
+
+			if (view === 'address-book') {
+				this.setAddressBookTab('worked-with');
+				this.loadWorkedWith();
+			} else {
+				this.loadCommunity(false);
+			}
+		},
+
+		initCommunityFilterPanel: function() {
+			$(document).on('click', '#zaobank-community-filter-toggle', function(e) {
+				e.preventDefault();
+				$('.zaobank-community-filter-panel').addClass('open');
+				$('.zaobank-community-filter-overlay').addClass('open');
+			});
+
+			$(document).on('click', '.zaobank-community-filter-close, .zaobank-community-filter-overlay', function(e) {
+				e.preventDefault();
+				$('.zaobank-community-filter-panel').removeClass('open');
+				$('.zaobank-community-filter-overlay').removeClass('open');
+			});
+		},
+
+		handleCommunityFilterChange: function() {
+			this.state.community.page = 1;
+			this.loadCommunity(false);
+		},
+
+		handleCommunityLoadMore: function(e) {
+			e.preventDefault();
+			this.state.community.page++;
+			this.loadCommunity(true);
+		},
+
+		getCommunityFilters: function() {
+			const skillTags = $('[name="community_skill_tags[]"]:checked').map(function() {
+				return $(this).val();
+			}).get();
+
+			return {
+				search: $('[data-community-filter="search"]').val() || '',
+				skill: $('[data-community-filter="skill"]').val() || '',
+				region: $('[data-community-filter="region"]').val() || '',
+				sort: $('[data-community-filter="sort"]').val() || 'recent',
+				per_page: parseInt($('[data-community-filter="per_page"]').val(), 10) || 12,
+				skill_tags: skillTags
+			};
+		},
+
+		loadCommunity: function(append = false) {
+			const $list = $('.zaobank-community-list');
+			const $loadMore = $('.zaobank-community-load-more');
+			const $empty = $('[data-empty="community"]');
+
+			if (!append) {
+				$list.attr('data-loading', 'true');
+			}
+
+			const filters = this.getCommunityFilters();
+			this.state.community.filters = filters;
+
+			this.apiCall('community/users', 'GET', {
+				page: this.state.community.page,
+				per_page: filters.per_page,
+				q: filters.search,
+				skill: filters.skill,
+				region: filters.region,
+				sort: filters.sort,
+				skill_tags: filters.skill_tags
+			}, function(response) {
+				$list.attr('data-loading', 'false');
+				ZAOBank.state.community.totalPages = response.pages || 1;
+
+				const users = response.users || [];
+
+				if (users.length === 0 && !append) {
+					$list.empty();
+					$empty.show();
+					$loadMore.hide();
+					$('[data-role="community-summary"]').text('Showing 0-0 of 0');
+					return;
+				}
+
+				$empty.hide();
+
+				const template = $('#zaobank-community-card-template').html();
+				const html = users.map(function(user) {
+					const isSaved = (ZAOBank.state.community.savedIds || []).indexOf(user.id) !== -1;
+					return ZAOBank.renderTemplate(template, {
+						id: user.id,
+						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
+						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(64),
+						skills: user.skills ? ZAOBank.escapeHtml(user.skills) : '',
+						availability: user.availability ? ZAOBank.escapeHtml(user.availability) : '',
+						region: user.primary_region ? ZAOBank.escapeHtml(user.primary_region.name || '') : '',
+						skill_tags: Array.isArray(user.skill_tags) ? user.skill_tags.map(function(tag) {
+							return { label: ZAOBank.formatTagLabel(tag), slug: tag };
+						}) : [],
+						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess,
+						can_save: zaobank.isLoggedIn && zaobank.hasMemberAccess,
+						is_saved: isSaved
+					});
+				}).join('');
+
+				if (append) {
+					$list.append(html);
+				} else {
+					$list.html(html);
+				}
+
+				const total = response.total || 0;
+				const perPage = filters.per_page;
+				const start = total === 0 ? 0 : ((ZAOBank.state.community.page - 1) * perPage + 1);
+				const end = total === 0 ? 0 : Math.min(total, ZAOBank.state.community.page * perPage);
+				$('[data-role="community-summary"]').text(`Showing ${start}-${end} of ${total}`);
+
+				if (ZAOBank.state.community.page < ZAOBank.state.community.totalPages) {
+					$loadMore.show();
+				} else {
+					$loadMore.hide();
+				}
+			}, function() {
+				$list.attr('data-loading', 'false');
+			});
+		},
+
+		setAddressBookTab: function(tabId) {
+			const $container = $('.zaobank-community-page');
+			$container.find('.zaobank-address-tab').removeClass('active');
+			$container.find(`.zaobank-address-tab[data-address-tab="${tabId}"]`).addClass('active');
+			$container.find('.zaobank-address-panel').removeClass('active');
+			$container.find(`.zaobank-address-panel[data-address-panel="${tabId}"]`).addClass('active');
+			this.state.community.addressTab = tabId;
+		},
+
+		handleAddressBookTab: function(e) {
+			e.preventDefault();
+			const $tab = $(e.currentTarget);
+			const tabId = $tab.data('address-tab');
+			if (!tabId) return;
+
+			this.setAddressBookTab(tabId);
+
+			if (tabId === 'worked-with') {
+				this.loadWorkedWith();
+			} else if (tabId === 'saved') {
+				this.loadSavedProfiles(true);
+			}
+		},
+
+		loadSavedProfiles: function(renderList = true) {
+			if (!zaobank.hasMemberAccess) {
+				return;
+			}
+
+			const $list = $('.zaobank-saved-profiles-list');
+			const $empty = $('[data-empty="saved-profiles"]');
+
+			if (renderList && $list.length) {
+				$list.attr('data-loading', 'true');
+			}
+
+			this.apiCall('me/saved-profiles', 'GET', {}, function(response) {
+				ZAOBank.state.community.savedIds = response.ids || [];
+				ZAOBank.state.community.savedLoaded = true;
+				ZAOBank.updateSavedButtons();
+
+				if (!$list.length || !renderList) {
+					return;
+				}
+
+				$list.attr('data-loading', 'false');
+
+				const users = response.users || [];
+				if (users.length === 0) {
+					$list.empty();
+					$empty.show();
+					return;
+				}
+
+				$empty.hide();
+				const template = $('#zaobank-saved-profile-card-template').html();
+				const html = users.map(function(user) {
+					return ZAOBank.renderTemplate(template, {
+						id: user.id,
+						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
+						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(64),
+						skills: user.skills ? ZAOBank.escapeHtml(user.skills) : '',
+						availability: user.availability ? ZAOBank.escapeHtml(user.availability) : '',
+						region: user.primary_region ? ZAOBank.escapeHtml(user.primary_region.name || '') : '',
+						skill_tags: Array.isArray(user.skill_tags) ? user.skill_tags.map(function(tag) {
+							return { label: ZAOBank.formatTagLabel(tag), slug: tag };
+						}) : [],
+						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess
+					});
+				}).join('');
+
+				$list.html(html);
+			}, function() {
+				if ($list.length && renderList) {
+					$list.attr('data-loading', 'false');
+				}
+			});
+		},
+
+		updateSavedButtons: function() {
+			const savedIds = ZAOBank.state.community.savedIds || [];
+			$('.zaobank-save-profile').each(function() {
+				const $button = $(this);
+				const $card = $button.closest('.zaobank-community-card');
+				const userId = parseInt($card.data('user-id'), 10);
+				const isSaved = savedIds.indexOf(userId) !== -1;
+				$button.attr('data-saved', isSaved ? 'true' : 'false');
+				$button.text(isSaved ? 'Saved' : 'Save');
+			});
+		},
+
+		handleOpenCommunityRequest: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Requests are available to verified members only.', 'error');
+				return;
+			}
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-community-card');
+			$card.find('.zaobank-community-actions').hide();
+			$card.find('.zaobank-community-request-form').removeAttr('hidden');
+		},
+
+		handleCancelCommunityRequest: function(e) {
+			e.preventDefault();
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-community-card');
+			const $form = $card.find('.zaobank-community-request-form');
+			$form.find('textarea, input').val('');
+			$form.attr('hidden', true);
+			$card.find('.zaobank-community-actions').show();
+		},
+
+		handleSubmitCommunityRequest: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Requests are available to verified members only.', 'error');
+				return;
+			}
+			const $button = $(e.currentTarget);
+			const $form = $button.closest('.zaobank-community-request-form');
+			const $card = $button.closest('.zaobank-community-card');
+			const toUserId = $card.data('user-id');
+			const hours = $form.find('[name="request_hours"]').val();
+			const details = $form.find('[name="request_details"]').val().trim();
+
+			if (!details) {
+				ZAOBank.showToast('Please share a short description of your request.', 'error');
+				return;
+			}
+
+			if ($form.data('processing')) {
+				return;
+			}
+
+			$form.data('processing', true);
+			$button.prop('disabled', true).text('Sending...');
+
+			const message = `Skill request:\nEstimated hours: ${hours || 'Not specified'}\n\n${details}`;
+
+			this.apiCall('messages', 'POST', {
+				to_user_id: toUserId,
+				message: message
+			}, function() {
+				ZAOBank.showToast('Request sent!', 'success');
+				$form.attr('hidden', true);
+				$card.find('.zaobank-community-actions').show();
+				$form.find('textarea, input').val('');
+				$form.data('processing', false);
+				$button.prop('disabled', false).text('Send Request');
+			}, function() {
+				$form.data('processing', false);
+				$button.prop('disabled', false).text('Send Request');
+			});
+		},
+
+		handleSaveProfile: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Saving profiles is available to verified members only.', 'error');
+				return;
+			}
+
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-community-card');
+			const userId = parseInt($card.data('user-id'), 10);
+			const isSaved = $button.attr('data-saved') === 'true';
+
+			if (!userId) return;
+
+			$button.prop('disabled', true);
+
+			if (isSaved) {
+				this.apiCall('me/saved-profiles/' + userId, 'DELETE', {}, function(response) {
+					ZAOBank.state.community.savedIds = response.ids || [];
+					ZAOBank.updateSavedButtons();
+					ZAOBank.loadSavedProfiles(true);
+					$button.prop('disabled', false);
+				}, function() {
+					$button.prop('disabled', false);
+				});
+				return;
+			}
+
+			this.apiCall('me/saved-profiles', 'POST', { user_id: userId }, function(response) {
+				ZAOBank.state.community.savedIds = response.ids || [];
+				ZAOBank.updateSavedButtons();
+				ZAOBank.loadSavedProfiles(true);
+				$button.prop('disabled', false);
+			}, function() {
+				$button.prop('disabled', false);
+			});
+		},
+
+		handleRemoveSavedProfile: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Saving profiles is available to verified members only.', 'error');
+				return;
+			}
+
+			const $button = $(e.currentTarget);
+			const $card = $button.closest('.zaobank-community-card');
+			const userId = parseInt($card.data('user-id'), 10);
+
+			if (!userId) return;
+
+			$button.prop('disabled', true);
+
+			this.apiCall('me/saved-profiles/' + userId, 'DELETE', {}, function(response) {
+				ZAOBank.state.community.savedIds = response.ids || [];
+				ZAOBank.updateSavedButtons();
+				ZAOBank.loadSavedProfiles(true);
+			}, function() {
+				$button.prop('disabled', false);
+			});
 		},
 
 		// =========================================================================
@@ -439,11 +844,11 @@
 				const currentUserId = Number(zaobank.userId || 0);
 				const requesterId = Number(job.requester_id || 0);
 				const providerId = Number(job.provider_id || 0);
-				const canClaim = zaobank.isLoggedIn && !providerId && requesterId !== currentUserId;
-				const canComplete = zaobank.isLoggedIn && providerId && !job.completed_at && requesterId === currentUserId;
-				const canEdit = zaobank.isLoggedIn && requesterId === currentUserId && !providerId;
-				const canRelease = zaobank.isLoggedIn && providerId === currentUserId && !job.completed_at;
-				const canMessage = zaobank.isLoggedIn && requesterId !== currentUserId;
+				const canClaim = zaobank.isLoggedIn && zaobank.hasMemberAccess && !providerId && requesterId !== currentUserId;
+				const canComplete = zaobank.isLoggedIn && zaobank.hasMemberAccess && providerId && !job.completed_at && requesterId === currentUserId;
+				const canEdit = zaobank.isLoggedIn && zaobank.hasMemberAccess && requesterId === currentUserId && !providerId;
+				const canRelease = zaobank.isLoggedIn && zaobank.hasMemberAccess && providerId === currentUserId && !job.completed_at;
+				const canMessage = zaobank.isLoggedIn && zaobank.hasMemberAccess && requesterId !== currentUserId;
 				const canReport = requesterId !== currentUserId;
 				const showFeedbackPrompt = !!job.completed_at && requesterId === currentUserId && providerId;
 
@@ -454,6 +859,7 @@
 					hours: job.hours,
 					location: job.location ? ZAOBank.escapeHtml(job.location) : '',
 					preferred_date: job.preferred_date || '',
+					virtual_ok: !!job.virtual_ok,
 					skills_required: job.skills_required ? job.skills_required.split(',').map(s => s.trim()) : [],
 					status_class: status.class,
 					status_label: status.label,
@@ -636,6 +1042,7 @@
 				$form.find('[name="location"]').val(job.location || '');
 				$form.find('[name="preferred_date"]').val(job.preferred_date || '');
 				$form.find('[name="flexible_timing"]').prop('checked', job.flexible_timing);
+				$form.find('[name="virtual_ok"]').prop('checked', !!job.virtual_ok);
 				$form.find('[name="skills_required"]').val(job.skills_required || '');
 
 				if (job.region_id) {
@@ -649,6 +1056,10 @@
 
 		handleJobFormSubmit: function(e) {
 			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Job posting is available to verified members only.', 'error');
+				return;
+			}
 			const $form = $(e.currentTarget);
 			const $button = $form.find('[type="submit"]');
 			const jobId = $form.find('[name="job_id"]').val();
@@ -668,6 +1079,7 @@
 				location: $form.find('[name="location"]').val(),
 				preferred_date: $form.find('[name="preferred_date"]').val(),
 				flexible_timing: $form.find('[name="flexible_timing"]').is(':checked'),
+				virtual_ok: $form.find('[name="virtual_ok"]').is(':checked'),
 				skills_required: $form.find('[name="skills_required"]').val(),
 				region: $form.find('[name="region"]').val(),
 				job_types: $form.find('[name="job_types[]"]:checked').map(function() {
@@ -722,9 +1134,9 @@
 					const currentUserId = Number(zaobank.userId || 0);
 					const requesterId = Number(job.requester_id || 0);
 					const providerId = Number(job.provider_id || 0);
-					const canComplete = providerId && !job.completed_at && requesterId === currentUserId;
-					const canEdit = requesterId === currentUserId && !providerId;
-					const canRelease = providerId === currentUserId && !job.completed_at;
+					const canComplete = zaobank.hasMemberAccess && providerId && !job.completed_at && requesterId === currentUserId;
+					const canEdit = zaobank.hasMemberAccess && requesterId === currentUserId && !providerId;
+					const canRelease = zaobank.hasMemberAccess && providerId === currentUserId && !job.completed_at;
 					return ZAOBank.renderTemplate(template, {
 						id: job.id,
 						title: ZAOBank.escapeHtml(job.title),
@@ -782,7 +1194,12 @@
 					skills: profile.skills ? ZAOBank.escapeHtml(profile.skills) : '',
 					availability: profile.availability ? ZAOBank.escapeHtml(profile.availability) : '',
 					primary_region: profile.primary_region || null,
-					profile_tags: profile.profile_tags || [],
+					skill_tags: Array.isArray(profile.skill_tags) ? profile.skill_tags.map(function(tag) {
+						return ZAOBank.formatTagLabel(tag);
+					}) : [],
+					profile_tags: Array.isArray(profile.profile_tags) ? profile.profile_tags.map(function(tag) {
+						return ZAOBank.formatTagLabel(tag);
+					}) : [],
 					is_own: isOwn,
 					discord_id: profile.discord_id || '',
 					discord_url: profile.discord_id ? 'https://discord.com/users/' + profile.discord_id : '',
@@ -884,6 +1301,7 @@
 				$form.find('[name="user_bio"]').val(profile.bio || '');
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
+				$form.find('[name="user_available_for_requests"]').prop('checked', profile.available_for_requests !== false);
 				$form.find('[name="user_phone"]').val(profile.phone || '');
 				$form.find('[name="user_discord_id"]').val(profile.discord_id || '');
 
@@ -907,6 +1325,13 @@
 					});
 				}
 
+				// Check skill tags
+				if (profile.skill_tags && Array.isArray(profile.skill_tags)) {
+					profile.skill_tags.forEach(function(tag) {
+						$form.find(`[name="user_skill_tags[]"][value="${tag}"]`).prop('checked', true);
+					});
+				}
+
 				// Check contact preferences
 				if (profile.contact_preferences && Array.isArray(profile.contact_preferences)) {
 					profile.contact_preferences.forEach(function(pref) {
@@ -920,6 +1345,10 @@
 
 		handleProfileFormSubmit: function(e) {
 			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Profile edits are available to verified members only.', 'error');
+				return;
+			}
 			const $form = $(e.currentTarget);
 			const $button = $form.find('[type="submit"]');
 
@@ -931,10 +1360,14 @@
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
+				user_available_for_requests: $form.find('[name="user_available_for_requests"]').is(':checked') ? 1 : 0,
 				user_phone: $form.find('[name="user_phone"]').val(),
 				user_discord_id: $form.find('[name="user_discord_id"]').val(),
 				user_primary_region: $form.find('[name="user_primary_region"]').val(),
 				user_profile_tags: $form.find('[name="user_profile_tags[]"]:checked').map(function() {
+					return $(this).val();
+				}).get(),
+				user_skill_tags: $form.find('[name="user_skill_tags[]"]:checked').map(function() {
 					return $(this).val();
 				}).get(),
 				user_contact_preferences: $form.find('[name="user_contact_preferences[]"]:checked').map(function() {
@@ -964,6 +1397,14 @@
 		// =========================================================================
 
 		initMessages: function($container) {
+			if (!zaobank.hasMemberAccess) {
+				const $list = $('.zaobank-conversations-list');
+				if ($list.length) {
+					$list.attr('data-loading', 'false').html('<p class="zaobank-loading-placeholder" style="text-align: center;">Messaging is available to verified members.</p>');
+				}
+				return;
+			}
+
 			const view = $container.data('view');
 			if (view === 'updates') {
 				this.loadJobUpdates();
@@ -1146,6 +1587,10 @@
 		initConversation: function($container) {
 			const userId = $container.data('user-id');
 			if (!userId) return;
+			if (!zaobank.hasMemberAccess) {
+				$('.zaobank-messages-list').attr('data-loading', 'false').html('<p class="zaobank-loading-placeholder" style="text-align: center;">Messaging is available to verified members.</p>');
+				return;
+			}
 
 			this.loadConversationMessages(userId);
 			this.initMessageComposer();
@@ -1153,6 +1598,10 @@
 
 		loadConversationMessages: function(userId) {
 			const $list = $('.zaobank-messages-list');
+			if (!zaobank.hasMemberAccess) {
+				$list.attr('data-loading', 'false').html('<p class="zaobank-loading-placeholder" style="text-align: center;">Messaging is available to verified members.</p>');
+				return;
+			}
 
 			this.apiCall('me/messages', 'GET', { with_user: userId }, function(response) {
 				$list.attr('data-loading', 'false');
@@ -1185,7 +1634,7 @@
 					return !msg.is_read && Number(msg.to_user_id || 0) === currentUserId;
 				}).length;
 
-				if (unreadCount > 0) {
+				if (unreadCount > 0 && zaobank.hasMemberAccess) {
 					ZAOBank.apiCall('me/messages/read-all', 'POST', { with_user: userId }, function() {
 						ZAOBank.updateUnreadBadge(-unreadCount);
 					});
@@ -1211,6 +1660,10 @@
 
 		handleMessageSubmit: function(e) {
 			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Messaging is available to verified members only.', 'error');
+				return;
+			}
 			const $form = $(e.currentTarget);
 			const $input = $form.find('[name="message"]');
 			const $button = $form.find('[type="submit"]');
@@ -1289,7 +1742,6 @@
 		initExchanges: function($container) {
 			this.loadUserBalance();
 			this.loadExchanges();
-			this.loadWorkedWith();
 		},
 
 		loadExchanges: function(filter = 'all', append = false) {
@@ -1425,6 +1877,7 @@
 						latest_note_tag_label: latestTag ? ZAOBank.escapeHtml(ZAOBank.formatTagLabel(latestTag)) : '',
 						latest_note_text: latestText ? ZAOBank.escapeHtml(latestText) : '',
 						has_note_tags: hasNoteTags,
+						can_message: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						note_tags: noteTags
 					});
 				}).join('');
@@ -1677,6 +2130,21 @@
 				const userId = $container.data('user-id');
 				this.loadAppreciations(userId, tabId);
 			}
+
+			// Handle community tabs
+			if ($container.data('component') === 'community') {
+				if (tabId === 'address-book') {
+					this.setAddressBookTab(this.state.community.addressTab || 'worked-with');
+					if (this.state.community.addressTab === 'saved') {
+						this.loadSavedProfiles(true);
+					} else {
+						this.loadWorkedWith();
+					}
+				} else if (tabId === 'community') {
+					this.state.community.page = 1;
+					this.loadCommunity(false);
+				}
+			}
 		},
 
 		// =========================================================================
@@ -1684,7 +2152,7 @@
 		// =========================================================================
 
 		loadRegions: function() {
-			const $selects = $('[name="region"], [name="user_primary_region"], [data-filter="region"]');
+			const $selects = $('[name="region"], [name="user_primary_region"], [data-filter="region"], [data-community-filter="region"]');
 			if (!$selects.length) return;
 
 			this.apiCall('regions', 'GET', {}, function(response) {

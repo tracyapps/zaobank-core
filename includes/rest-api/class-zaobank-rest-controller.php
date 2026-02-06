@@ -25,6 +25,26 @@ class ZAOBank_REST_Controller extends WP_REST_Controller {
 	}
 
 	/**
+	 * Check if user can access member-only actions.
+	 */
+	public function check_member_access($request) {
+		$auth_check = $this->check_authentication($request);
+		if (is_wp_error($auth_check)) {
+			return $auth_check;
+		}
+
+		if (!ZAOBank_Security::user_has_member_access()) {
+			return new WP_Error(
+				'rest_forbidden',
+				__('You do not have permission to perform this action.', 'zaobank'),
+				array('status' => 403)
+			);
+		}
+
+		return true;
+	}
+
+	/**
 	 * Prepare pagination headers.
 	 */
 	protected function prepare_pagination_headers($total, $per_page, $page) {

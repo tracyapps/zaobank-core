@@ -148,6 +148,13 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					</select>
 				</div>
 
+				<div class="zaobank-form-group">
+					<label class="zaobank-checkbox-label">
+						<input type="checkbox" name="virtual_ok" value="1">
+						<span><?php _e('This job can be done virtually', 'zaobank'); ?></span>
+					</label>
+				</div>
+
 			</div>
 
 			<div class="zaobank-card-footer">

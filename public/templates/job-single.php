@@ -72,6 +72,19 @@ $current_user_id = get_current_user_id();
 			</div>
 			{{/if}}
 
+			{{#if virtual_ok}}
+			<div class="zaobank-meta-item">
+				<svg class="zaobank-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/>
+					<path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+				</svg>
+				<div>
+					<span class="zaobank-meta-label"><?php _e('Virtual Option', 'zaobank'); ?></span>
+					<span class="zaobank-meta-value"><?php _e('Available', 'zaobank'); ?></span>
+				</div>
+			</div>
+			{{/if}}
+
 			{{#if preferred_date}}
 			<div class="zaobank-meta-item">
 				<svg class="zaobank-meta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

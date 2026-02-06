@@ -185,6 +185,7 @@ function zaobank_current_template() {
 		'zaobank_job'           => 'job-single',
 		'zaobank_job_form'      => 'job-form',
 		'zaobank_my_jobs'       => 'my-jobs',
+		'zaobank_community'     => 'community',
 		'zaobank_profile'       => 'profile',
 		'zaobank_profile_edit'  => 'profile-edit',
 		'zaobank_messages'      => 'messages',

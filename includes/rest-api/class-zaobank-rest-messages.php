@@ -8,7 +8,7 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/me/messages', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'get_messages'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'with_user' => array(
 					'type' => 'integer',
@@ -24,20 +24,20 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/messages', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'create_message'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		register_rest_route($this->namespace, '/messages/(?P<id>[\d]+)/read', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'mark_as_read'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		// Mark all messages from a user as read
 		register_rest_route($this->namespace, '/me/messages/read-all', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'mark_conversation_read'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'with_user' => array(
 					'required' => true,
@@ -51,7 +51,7 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/me/messages/archive', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'archive_conversation'),
-			'permission_callback' => array($this, 'check_authentication'),
+			'permission_callback' => array($this, 'check_member_access'),
 			'args' => array(
 				'other_user_id' => array(
 					'required' => true,

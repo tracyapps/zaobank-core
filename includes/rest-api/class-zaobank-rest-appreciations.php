@@ -8,13 +8,13 @@ class ZAOBank_REST_Appreciations extends ZAOBank_REST_Controller {
 		register_rest_route($this->namespace, '/appreciations', array(
 			'methods' => WP_REST_Server::CREATABLE,
 			'callback' => array($this, 'create_appreciation'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		register_rest_route($this->namespace, '/me/appreciations/given', array(
 			'methods' => WP_REST_Server::READABLE,
 			'callback' => array($this, 'get_given_appreciations'),
-			'permission_callback' => array($this, 'check_authentication')
+			'permission_callback' => array($this, 'check_member_access')
 		));
 
 		register_rest_route($this->namespace, '/users/(?P<id>[\d]+)/appreciations', array(
