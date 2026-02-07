@@ -10,20 +10,21 @@ if (!defined('ABSPATH')) {
 }
 
 $urls = ZAOBank_Shortcodes::get_page_urls();
-$community_url = isset($urls['community']) ? $urls['community'] : (isset($urls['messages']) ? $urls['messages'] : '#');
 ?>
 
 <div class="zaobank-container zaobank-exchanges-page" data-component="exchanges">
 
 	<header class="zaobank-page-header">
-		<h1 class="zaobank-page-title"><?php _e('Exchange History', 'zaobank'); ?></h1>
+		<h1 class="zaobank-page-title"><?php _e('Jobs', 'zaobank'); ?></h1>
 		<?php
 		$tabs = array(
-			array('label' => __('community', 'zaobank'), 'url' => $community_url),
-			array('label' => __('exchanges', 'zaobank'), 'url' => $urls['exchanges'], 'current' => true),
-			array('label' => __('messages', 'zaobank'), 'url' => $urls['messages']),
-			array('label' => __('job updates', 'zaobank'), 'url' => $urls['messages'] . '?view=updates'),
+			array('label' => __('all jobs', 'zaobank'), 'url' => $urls['jobs']),
+			array('label' => __('my jobs', 'zaobank'), 'url' => $urls['my_jobs']),
 		);
+		if (ZAOBank_Security::user_has_member_access()) {
+			$tabs[] = array('label' => __('new job', 'zaobank'), 'url' => $urls['job_form']);
+		}
+		$tabs[] = array('label' => __('job history', 'zaobank'), 'url' => $urls['exchanges'], 'current' => true);
 		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
 		?>
 	</header>
@@ -112,6 +113,9 @@ $community_url = isset($urls['community']) ? $urls['community'] : (isset($urls['
 			<a href="<?php echo esc_url($urls['profile']); ?>?user_id={{other_user_id}}" class="zaobank-exchange-user">
 				<img src="{{other_user_avatar}}" alt="" class="zaobank-avatar-tiny">
 				<span>{{#if is_earned}}<?php _e('From', 'zaobank'); ?>{{else}}<?php _e('To', 'zaobank'); ?>{{/if}} {{other_user_name}}</span>
+				{{#if other_user_pronouns}}
+				<span class="zaobank-name-pronouns">({{other_user_pronouns}})</span>
+				{{/if}}
 			</a>
 			<span class="zaobank-exchange-date">{{date}}</span>
 		</div>

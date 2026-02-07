@@ -111,6 +111,9 @@ if (!$user) {
 			<a href="<?php echo esc_url($urls['profile']); ?>?user_id={{from_user_id}}" class="zaobank-appreciation-from">
 				<img src="{{from_user_avatar}}" alt="" class="zaobank-avatar-small">
 				<span class="zaobank-appreciation-from-name">{{from_user_name}}</span>
+				{{#if from_user_pronouns}}
+				<span class="zaobank-name-pronouns">({{from_user_pronouns}})</span>
+				{{/if}}
 			</a>
 			<span class="zaobank-appreciation-date">{{date}}</span>
 		</div>

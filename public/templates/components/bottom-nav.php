@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 
 $urls = ZAOBank_Shortcodes::get_page_urls();
 $community_url = isset($urls['community']) ? $urls['community'] : (isset($urls['messages']) ? $urls['messages'] : '#');
+$more_url = isset($urls['more']) ? $urls['more'] : (isset($urls['messages']) ? $urls['messages'] : '#');
 $unread_count = ZAOBank_Shortcodes::get_unread_message_count();
 $current_url = trailingslashit(get_permalink());
 
@@ -22,6 +23,19 @@ foreach ($urls as $key => $url) {
 		$active = $key;
 		break;
 	}
+}
+
+// Map subpages to their parent nav item.
+$active_map = array(
+	'my_jobs'       => 'jobs',
+	'exchanges'     => 'jobs',
+	'appreciations' => 'jobs',
+	'messages'      => 'more',
+	'profile_edit'  => 'more',
+	'profile'       => 'more',
+);
+if (isset($active_map[$active])) {
+	$active = $active_map[$active];
 }
 ?>
 
@@ -68,13 +82,14 @@ foreach ($urls as $key => $url) {
 		<span class="zaobank-nav-label"><?php _e('Community', 'zaobank'); ?></span>
 	</a>
 
-	<a href="<?php echo esc_url($urls['profile']); ?>"
-	   class="zaobank-nav-item <?php echo $active === 'profile' ? 'active' : ''; ?>"
-	   aria-label="<?php esc_attr_e('Profile', 'zaobank'); ?>">
+	<a href="<?php echo esc_url($more_url); ?>"
+	   class="zaobank-nav-item <?php echo $active === 'more' ? 'active' : ''; ?>"
+	   aria-label="<?php esc_attr_e('More', 'zaobank'); ?>">
 		<svg class="zaobank-nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-			<circle cx="12" cy="7" r="4"/>
-			<path d="M5.5 21a7.5 7.5 0 0 1 13 0"/>
+			<circle cx="5" cy="12" r="2"/>
+			<circle cx="12" cy="12" r="2"/>
+			<circle cx="19" cy="12" r="2"/>
 		</svg>
-		<span class="zaobank-nav-label"><?php _e('Profile', 'zaobank'); ?></span>
+		<span class="zaobank-nav-label"><?php _e('More', 'zaobank'); ?></span>
 	</a>
 </nav>

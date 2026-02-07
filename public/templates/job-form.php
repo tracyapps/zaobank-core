@@ -20,19 +20,17 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 
 	<header class="zaobank-page-header">
 		<h1 class="zaobank-page-title"><?php _e('Jobs', 'zaobank'); ?></h1>
-		<nav class="zaobank-subpage-tabs">
-			<ul role="tablist">
-				<li role="tab" class="subpage-tab">
-					<a href="<?php echo esc_url($urls['jobs']); ?>">all jobs</a>
-				</li>
-				<li role="tab" class="subpage-tab">
-					<a href="<?php echo esc_url($urls['my_jobs']); ?>">my jobs</a>
-				</li>
-				<li role="tab" class="subpage-tab">
-					<span><?php echo $is_edit ? __('Edit Job', 'zaobank') : __('post a job', 'zaobank'); ?></span>
-				</li>
-			</ul>
-		</nav>
+		<?php
+		$tabs = array(
+			array('label' => __('all jobs', 'zaobank'), 'url' => $urls['jobs']),
+			array('label' => __('my jobs', 'zaobank'), 'url' => $urls['my_jobs']),
+		);
+		if (ZAOBank_Security::user_has_member_access()) {
+			$tabs[] = array('label' => $is_edit ? __('edit job', 'zaobank') : __('new job', 'zaobank'), 'url' => $urls['job_form'], 'current' => true);
+		}
+		$tabs[] = array('label' => __('job history', 'zaobank'), 'url' => $urls['exchanges']);
+		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
+		?>
 		
 	</header>
 	<?php if (!$is_edit) : ?>

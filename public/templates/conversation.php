@@ -12,6 +12,7 @@ if (!defined('ABSPATH')) {
 $other_user_id = isset($user_id) ? (int) $user_id : 0;
 $other_user = get_userdata($other_user_id);
 $urls = ZAOBank_Shortcodes::get_page_urls();
+$other_user_pronouns = $other_user_id ? get_user_meta($other_user_id, 'user_pronouns', true) : '';
 
 if (!$other_user) {
 	echo '<div class="zaobank-error">' . __('User not found.', 'zaobank') . '</div>';
@@ -32,6 +33,9 @@ if (!$other_user) {
 		<a href="<?php echo esc_url($urls['profile']); ?>?user_id=<?php echo esc_attr($other_user_id); ?>" class="zaobank-conversation-user">
 			<img src="<?php echo esc_url(get_avatar_url($other_user_id, array('size' => 40))); ?>" alt="" class="zaobank-avatar-small">
 			<span class="zaobank-conversation-user-name"><?php echo esc_html($other_user->display_name); ?></span>
+			<?php if (!empty($other_user_pronouns)) : ?>
+				<span class="zaobank-name-pronouns">(<?php echo esc_html($other_user_pronouns); ?>)</span>
+			<?php endif; ?>
 		</a>
 	</header>
 

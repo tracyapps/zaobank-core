@@ -503,6 +503,34 @@
   width: 100%;
 }
 
+.zaobank-filter-item-grow {
+  flex: 1;
+}
+
+.zaobank-filter-sticky {
+  position: sticky;
+  left: 0;
+  z-index: 5;
+  align-self: center;
+}
+
+.zaobank-filter-row-secondary,
+.zaobank-filter-row-summary {
+  justify-content: space-between;
+  align-items: center;
+}
+
+@media (min-width: 640px) {
+  .zaobank-filter-row {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .zaobank-filter-item {
+    width: auto;
+  }
+}
+
 /* Filter Panel (slide-out) */
 .zaobank-filter-panel-overlay {
   position: fixed;
@@ -613,6 +641,11 @@
   background: var(--zaobank-purple);
   color: var(--zaobank-white);
   border-radius: var(--zaobank-radius-full);
+  text-decoration: none;
+}
+
+.zaobank-tag-link {
+  cursor: pointer;
 }
 
 .zaobank-tag-badge {
@@ -629,6 +662,36 @@
 .zaobank-tag-sm {
   padding: var(--zaobank-space-1) var(--zaobank-space-2);
   font-size: var(--zaobank-font-size-xs);
+}
+
+.zaobank-save-profile {
+  flex-direction: column;
+  align-items: center;
+  gap: var(--zaobank-space-1);
+}
+
+.zaobank-save-profile .zaobank-icon-star {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+
+.zaobank-save-profile.is-saved .zaobank-icon-star {
+  fill: currentColor;
+}
+
+.zaobank-save-label {
+  font-size: var(--zaobank-font-size-xs);
+  line-height: 1;
+}
+
+.zaobank-name-pronouns {
+  display: inline-block;
+  margin: 0 0 0 var(--zaobank-space-1);
+  font-size: var(--zaobank-font-size-xs);
+  color: var(--zaobank-gray-600);
 }
 
 .zaobank-job-types {
@@ -737,6 +800,14 @@
 }
 
 .zaobank-tab-panel.active {
+  display: block;
+}
+
+.zaobank-address-panel {
+  display: none;
+}
+
+.zaobank-address-panel.active {
   display: block;
 }
 

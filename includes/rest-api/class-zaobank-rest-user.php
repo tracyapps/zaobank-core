@@ -393,6 +393,10 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			update_user_meta($user_id, 'user_skills', sanitize_textarea_field($params['user_skills']));
 		}
 
+		if (isset($params['user_pronouns'])) {
+			update_user_meta($user_id, 'user_pronouns', sanitize_text_field($params['user_pronouns']));
+		}
+
 		if (isset($params['user_availability'])) {
 			update_user_meta($user_id, 'user_availability', sanitize_text_field($params['user_availability']));
 		}
@@ -496,7 +500,8 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			$users[] = array(
 				'id' => $user->ID,
 				'name' => $user->display_name,
-				'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 40)
+				'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 40),
+				'pronouns' => get_user_meta($user->ID, 'user_pronouns', true)
 			);
 		}
 
@@ -607,27 +612,83 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'exclude' => array(get_current_user_id())
 		);
 
+		$orderby = ($sort === 'name') ? 'display_name' : 'registered';
+		$order = ($sort === 'name') ? 'ASC' : 'DESC';
+
 		if ($search !== '') {
-			$args['search'] = '*' . $search . '*';
-			$args['search_columns'] = array('display_name', 'user_login', 'user_email');
-		}
+			$search_args = $args;
+			$search_args['fields'] = 'ID';
+			$search_args['number'] = -1;
+			$search_args['paged'] = 1;
+			$search_args['search'] = '*' . $search . '*';
+			$search_args['search_columns'] = array('display_name', 'user_login', 'user_email');
 
-		if ($sort === 'name') {
-			$args['orderby'] = 'display_name';
-			$args['order'] = 'ASC';
+			$search_query = new WP_User_Query($search_args);
+			$name_ids = $search_query->get_results();
+
+			$skill_meta_query = $meta_query;
+			$skill_meta_query[] = array(
+				'relation' => 'OR',
+				array(
+					'key' => 'user_skills',
+					'value' => $search,
+					'compare' => 'LIKE'
+				),
+				array(
+					'key' => 'user_skill_tags',
+					'value' => $search,
+					'compare' => 'LIKE'
+				)
+			);
+
+			$skill_args = $args;
+			$skill_args['meta_query'] = $skill_meta_query;
+			$skill_args['fields'] = 'ID';
+			$skill_args['number'] = -1;
+			$skill_args['paged'] = 1;
+
+			$skill_query = new WP_User_Query($skill_args);
+			$skill_ids = $skill_query->get_results();
+
+			$all_ids = array_values(array_unique(array_merge($name_ids, $skill_ids)));
+
+			if (empty($all_ids)) {
+				return $this->success_response(array(
+					'users' => array(),
+					'total' => 0,
+					'pages' => 0
+				));
+			}
+
+			$total = count($all_ids);
+			$pages = $per_page ? (int) ceil($total / $per_page) : 1;
+
+			$paged_args = array(
+				'include' => $all_ids,
+				'number' => $per_page,
+				'paged' => $page,
+				'orderby' => $orderby,
+				'order' => $order
+			);
+
+			$user_query = new WP_User_Query($paged_args);
+			$users = array_map(function($user) {
+				return $this->format_directory_user($user);
+			}, $user_query->get_results());
+			$users = array_values(array_filter($users));
 		} else {
-			$args['orderby'] = 'registered';
-			$args['order'] = 'DESC';
+			$args['orderby'] = $orderby;
+			$args['order'] = $order;
+
+			$user_query = new WP_User_Query($args);
+			$users = array_map(function($user) {
+				return $this->format_directory_user($user);
+			}, $user_query->get_results());
+			$users = array_values(array_filter($users));
+
+			$total = (int) $user_query->get_total();
+			$pages = $per_page ? (int) ceil($total / $per_page) : 1;
 		}
-
-		$user_query = new WP_User_Query($args);
-		$users = array_map(function($user) {
-			return $this->format_directory_user($user);
-		}, $user_query->get_results());
-		$users = array_values(array_filter($users));
-
-		$total = (int) $user_query->get_total();
-		$pages = $per_page ? (int) ceil($total / $per_page) : 1;
 
 		return $this->success_response(array(
 			'users' => $users,
@@ -750,6 +811,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'id' => $user->ID,
 			'name' => $user->display_name,
 			'display_name' => $user->display_name,
+			'pronouns' => get_user_meta($user->ID, 'user_pronouns', true),
 			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 64),
 			'skills' => get_user_meta($user->ID, 'user_skills', true),
 			'skill_tags' => get_user_meta($user->ID, 'user_skill_tags', true),
@@ -771,6 +833,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'id' => $user->ID,
 			'name' => $user->display_name,
 			'display_name' => $user->display_name,
+			'pronouns' => get_user_meta($user->ID, 'user_pronouns', true),
 			'email' => $public_only ? null : $user->user_email,
 			'avatar_url' => ZAOBank_Helpers::get_user_avatar_url($user->ID, 96),
 			'skills' => get_user_meta($user->ID, 'user_skills', true),

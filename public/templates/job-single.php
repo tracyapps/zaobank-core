@@ -123,6 +123,9 @@ $current_user_id = get_current_user_id();
 				<img src="{{requester_avatar}}" alt="" class="zaobank-avatar">
 				<div class="zaobank-user-info">
 					<span class="zaobank-user-name">{{requester_name}}</span>
+					{{#if requester_pronouns}}
+					<span class="zaobank-name-pronouns">({{requester_pronouns}})</span>
+					{{/if}}
 					<span class="zaobank-user-since"><?php _e('Member since', 'zaobank'); ?> {{requester_since}}</span>
 				</div>
 			</a>
@@ -135,6 +138,9 @@ $current_user_id = get_current_user_id();
 				<img src="{{provider_avatar}}" alt="" class="zaobank-avatar">
 				<div class="zaobank-user-info">
 					<span class="zaobank-user-name">{{provider_name}}</span>
+					{{#if provider_pronouns}}
+					<span class="zaobank-name-pronouns">({{provider_pronouns}})</span>
+					{{/if}}
 				</div>
 			</a>
 		</div>

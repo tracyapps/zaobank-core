@@ -1,8 +1,8 @@
 <?php
 /**
- * Messages Template
+ * More Template
  *
- * Inbox/conversations list.
+ * Messages, job notifications, and profile edit shortcuts.
  */
 
 if (!defined('ABSPATH')) {
@@ -12,22 +12,21 @@ if (!defined('ABSPATH')) {
 $urls = ZAOBank_Shortcodes::get_page_urls();
 $current_view = isset($view) ? $view : 'messages';
 $is_updates_view = ($current_view === 'updates');
-$page_title = $is_updates_view ? __('Job Notifications', 'zaobank') : __('Messages', 'zaobank');
 ?>
 
-<div class="zaobank-container zaobank-messages-page" data-component="messages"<?php if ($is_updates_view) echo ' data-view="updates"'; ?>>
+<div class="zaobank-container zaobank-more-page" data-component="messages"<?php if ($is_updates_view) echo ' data-view="updates"'; ?>>
 
 	<header class="zaobank-page-header">
-		<h1 class="zaobank-page-title"><?php echo esc_html($page_title); ?></h1>
+		<h1 class="zaobank-page-title"><?php _e('More', 'zaobank'); ?></h1>
+		<?php
+		$tabs = array(
+			array('label' => __('messages', 'zaobank'), 'url' => $urls['more'], 'current' => !$is_updates_view),
+			array('label' => __('job notifications', 'zaobank'), 'url' => $urls['more'] . '?view=updates', 'current' => $is_updates_view),
+			array('label' => __('update profile', 'zaobank'), 'url' => $urls['profile_edit']),
+		);
+		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
+		?>
 	</header>
-
-	<?php if (!$is_updates_view && !empty($urls['more'])) : ?>
-		<p class="zaobank-form-hint">
-			<a href="<?php echo esc_url($urls['more'] . '?view=updates'); ?>">
-				<?php _e('View job notifications', 'zaobank'); ?>
-			</a>
-		</p>
-	<?php endif; ?>
 
 	<?php if (!$is_updates_view) : ?>
 	<div class="zaobank-message-search" data-component="message-search">
@@ -41,11 +40,11 @@ $page_title = $is_updates_view ? __('Job Notifications', 'zaobank') : __('Messag
 	</div>
 	<?php endif; ?>
 
-	<!-- Conversations List -->
+	<!-- Conversations / Updates List -->
 	<div class="zaobank-conversations-list" data-loading="true">
 		<div class="zaobank-loading-state">
 			<div class="zaobank-spinner"></div>
-			<p><?php _e('Loading conversations...', 'zaobank'); ?></p>
+			<p><?php echo $is_updates_view ? esc_html__('Loading job notifications...', 'zaobank') : esc_html__('Loading conversations...', 'zaobank'); ?></p>
 		</div>
 	</div>
 

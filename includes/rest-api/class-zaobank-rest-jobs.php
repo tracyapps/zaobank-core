@@ -427,6 +427,8 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 	 */
 	public function get_my_jobs($request) {
 		$user_id = get_current_user_id();
+		$include_completed = filter_var($request->get_param('include_completed'), FILTER_VALIDATE_BOOLEAN);
+		$exclude_completed = !$include_completed;
 
 		$args = array(
 			'post_type' => 'timebank_job',
@@ -438,17 +440,40 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		if ($type === 'requested') {
 			// Jobs created by user
 			$args['author'] = $user_id;
+			if ($exclude_completed) {
+				$args['meta_query'] = array(
+					array(
+						'key' => 'completed_at',
+						'compare' => 'NOT EXISTS'
+					)
+				);
+			}
 		} elseif ($type === 'claimed') {
 			// Jobs claimed by user
 			$args['meta_query'] = array(
+				'relation' => 'AND',
 				array(
 					'key' => 'provider_user_id',
 					'value' => $user_id
 				)
 			);
+			if ($exclude_completed) {
+				$args['meta_query'][] = array(
+					'key' => 'completed_at',
+					'compare' => 'NOT EXISTS'
+				);
+			}
 		} else {
 			// All jobs (requested or claimed)
 			$args['author'] = $user_id;
+			if ($exclude_completed) {
+				$args['meta_query'] = array(
+					array(
+						'key' => 'completed_at',
+						'compare' => 'NOT EXISTS'
+					)
+				);
+			}
 		}
 
 		$query = new WP_Query($args);
@@ -468,12 +493,19 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 				'post_type' => 'timebank_job',
 				'posts_per_page' => -1,
 				'meta_query' => array(
+					'relation' => 'AND',
 					array(
 						'key' => 'provider_user_id',
 						'value' => $user_id
 					)
 				)
 			);
+			if ($exclude_completed) {
+				$claimed_args['meta_query'][] = array(
+					'key' => 'completed_at',
+					'compare' => 'NOT EXISTS'
+				);
+			}
 
 			$claimed_query = new WP_Query($claimed_args);
 

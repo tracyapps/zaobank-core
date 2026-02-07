@@ -60,6 +60,17 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					       placeholder="<?php esc_attr_e('How your name appears to others', 'zaobank'); ?>">
 				</div>
 
+				<div class="zaobank-form-group">
+					<label for="profile-pronouns" class="zaobank-label">
+						<?php _e('Pronouns', 'zaobank'); ?>
+					</label>
+					<input type="text"
+					       id="profile-pronouns"
+					       name="user_pronouns"
+					       class="zaobank-input"
+					       placeholder="<?php esc_attr_e('e.g., she/her, they/them', 'zaobank'); ?>">
+				</div>
+
 				<!-- Bio -->
 				<div class="zaobank-form-group">
 					<label for="profile-bio" class="zaobank-label">

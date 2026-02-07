@@ -166,6 +166,14 @@ class ZAOBank_ACF {
 					'mime_types' => 'jpg,jpeg,png,gif,webp',
 				),
 				array(
+					'key' => 'field_user_pronouns',
+					'label' => 'Pronouns',
+					'name' => 'user_pronouns',
+					'type' => 'text',
+					'instructions' => 'Optional pronouns (e.g., "she/her", "they/them")',
+					'required' => 0,
+				),
+				array(
 					'key' => 'field_user_skills',
 					'label' => 'Skills I Can Offer',
 					'name' => 'user_skills',

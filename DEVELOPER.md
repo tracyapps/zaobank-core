@@ -129,6 +129,7 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 | `[zaobank_profile]` | `profile.php` | User profile (own or other) | Partial |
 | `[zaobank_profile_edit]` | `profile-edit.php` | Profile edit form | Yes |
 | `[zaobank_messages]` | `messages.php` or `conversation.php` | Conversations list; delegates to conversation view on `?user_id=`, job updates view on `?view=updates` | Yes |
+| `[zaobank_more]` | `more.php` | More menu (messages, job notifications, profile edit shortcuts) | Yes |
 | `[zaobank_conversation user_id="X"]` | `conversation.php` | Single conversation thread (standalone) | Yes |
 | `[zaobank_exchanges]` | `exchanges.php` | Exchange history | Yes |
 | `[zaobank_appreciations]` | `appreciations.php` | Appreciations received/given | Partial |
@@ -155,6 +156,9 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 
 #### `[zaobank_messages]`
 - **URL routing**: When `?user_id=X` is present, delegates to `[zaobank_conversation]` and renders the conversation view. When `?view=updates` is present, shows the job updates view instead of the conversations list. This allows one page to handle conversations list, individual conversations, and job notifications.
+
+#### `[zaobank_more]`
+- `view` (string): Optional view override (`messages` or `updates`). Defaults to `messages`, and also supports `?view=updates` in the URL.
 
 #### `[zaobank_conversation]`
 - `user_id` (int): Other user in conversation. Also accepts `?user_id=X`.
@@ -858,6 +862,21 @@ List all available jobs.
 }
 ```
 
+#### GET /jobs/mine
+List jobs posted or claimed by the current user (authenticated).
+
+**Parameters**:
+- `type` (string): `posted` or `claimed` (defaults to `posted`)
+- `include_completed` (bool): Include completed jobs in the response (default: `false`)
+
+**Response**:
+```json
+{
+    "jobs": [...],
+    "total": 7
+}
+```
+
 #### POST /jobs
 Create a new job (authenticated).
 
@@ -1089,6 +1108,7 @@ List community members available for requests (authenticated).
             "id": 42,
             "name": "Jane Doe",
             "display_name": "Jane Doe",
+            "pronouns": "she/her",
             "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
             "skills": "Gardening, tutoring",
             "skill_tags": ["gardening", "tutoring"],
@@ -1116,6 +1136,7 @@ Get current user's profile (authenticated).
     "id": 42,
     "name": "Jane Doe",
     "display_name": "Jane Doe",
+    "pronouns": "she/her",
     "email": "jane@example.com",
     "avatar_url": "https://example.com/wp-content/uploads/2026/01/photo.jpg",
     "skills": "Gardening, tutoring",
@@ -1147,6 +1168,7 @@ Update current user's profile (authenticated).
 ```json
 {
     "display_name": "string",
+    "user_pronouns": "string",
     "user_bio": "string",
     "user_skills": "string",
     "user_availability": "string",
@@ -1274,6 +1296,27 @@ Mark all messages from a specific user as read (authenticated). Bulk operation f
 {
     "success": true,
     "message": "Messages marked as read"
+}
+```
+
+#### POST /me/messages/read-type
+Mark all messages of a given type as read for the current user (authenticated). Useful for clearing job notifications.
+
+**Body**:
+```json
+{
+    "message_type": "job_update"
+}
+```
+
+- `message_type` (string, required): Message type to mark as read.
+
+**Response**:
+```json
+{
+    "success": true,
+    "message": "Messages marked as read",
+    "count": 4
 }
 ```
 
@@ -1620,7 +1663,7 @@ The plugin registers two ACF field groups programmatically:
 
 **User Profile Fields** include:
 - `user_profile_image` (image, return format: ID) — Custom profile photo, replaces Gravatar when set. Stored as user meta. Minimum 96x96px, accepts jpg/jpeg/png/gif/webp.
-- `user_bio`, `user_skills`, `user_availability`, `user_phone`, `user_discord_id`, `user_primary_region`, `user_profile_tags`, `user_contact_preferences`
+- `user_pronouns`, `user_bio`, `user_skills`, `user_availability`, `user_phone`, `user_discord_id`, `user_primary_region`, `user_profile_tags`, `user_contact_preferences`
 
 The profile image is selected via the WordPress media modal (`wp.media`) on the profile edit page. The attachment ID is stored as user meta and resolved to a URL via `wp_get_attachment_image_url()`. Use `ZAOBank_Helpers::get_user_avatar_url($user_id)` to get the resolved URL with Gravatar fallback.
 

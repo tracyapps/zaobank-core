@@ -36,6 +36,9 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 		<img src="{{avatar_url}}" alt="{{display_name}}" class="zaobank-profile-avatar">
 	</div>
 	<h1 class="zaobank-profile-name">{{display_name}}</h1>
+	{{#if pronouns}}
+	<p class="zaobank-name-pronouns">({{pronouns}})</p>
+	{{/if}}
 	{{#if display_name}}
 	<p class="zaobank-profile-display-name"><?php _e('Display name', 'zaobank'); ?>: {{display_name}}</p>
 	{{/if}}
@@ -82,7 +85,7 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 	<div class="zaobank-card-body">
 		<div class="zaobank-tags">
 			{{#each skill_tags}}
-			<span class="zaobank-tag">{{this}}</span>
+			<a href="<?php echo esc_url($urls['community']); ?>?skill_tag={{this.slug}}" class="zaobank-tag zaobank-tag-link">{{this.label}}</a>
 			{{/each}}
 		</div>
 	</div>

@@ -135,6 +135,27 @@ class ZAOBank_Messages {
 	}
 
 	/**
+	 * Mark all messages of a type as read for a user.
+	 *
+	 * @param int    $user_id      Recipient user ID.
+	 * @param string $message_type Message type to mark (e.g., job_update).
+	 * @return int Number of rows updated.
+	 */
+	public static function mark_type_read($user_id, $message_type) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_messages_table();
+
+		$updated = $wpdb->query($wpdb->prepare(
+			"UPDATE $table SET is_read = 1
+			 WHERE to_user_id = %d AND message_type = %s AND is_read = 0",
+			$user_id,
+			$message_type
+		));
+
+		return (int) $updated;
+	}
+
+	/**
 	 * Archive a conversation.
 	 */
 	public static function archive_conversation($user_id, $other_user_id) {
@@ -189,9 +210,11 @@ class ZAOBank_Messages {
 			'exchange_id' => $message->exchange_id ? (int) $message->exchange_id : null,
 			'from_user_id' => (int) $message->from_user_id,
 			'from_user_name' => get_the_author_meta('display_name', $message->from_user_id),
+			'from_user_pronouns' => get_user_meta($message->from_user_id, 'user_pronouns', true),
 			'from_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($message->from_user_id, 40),
 			'to_user_id' => (int) $message->to_user_id,
 			'to_user_name' => get_the_author_meta('display_name', $message->to_user_id),
+			'to_user_pronouns' => get_user_meta($message->to_user_id, 'user_pronouns', true),
 			'to_user_avatar' => ZAOBank_Helpers::get_user_avatar_url($message->to_user_id, 40),
 			'message' => $message->message,
 			'is_read' => (bool) $message->is_read,

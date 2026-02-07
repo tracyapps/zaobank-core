@@ -76,6 +76,7 @@ foreach ($options as $option) {
 $user_meta_keys = array(
 	'user_skills',
 	'user_skill_tags',
+	'user_pronouns',
 	'user_availability',
 	'user_available_for_requests',
 	'user_bio',

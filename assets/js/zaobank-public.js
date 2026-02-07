@@ -55,6 +55,7 @@
 			$(document).on('input', '[data-community-filter="skill"]', this.debounce(this.handleCommunityFilterChange.bind(this), 300));
 			$(document).on('change', '[data-community-filter="region"], [data-community-filter="sort"], [data-community-filter="per_page"]', this.handleCommunityFilterChange.bind(this));
 			$(document).on('change', '[name="community_skill_tags[]"]', this.handleCommunityFilterChange.bind(this));
+			$(document).on('click', '[data-action="community-reset"]', this.handleCommunityReset.bind(this));
 
 			// Tabs
 			$(document).on('click', '.zaobank-tab', this.handleTabClick.bind(this));
@@ -381,6 +382,7 @@
 				status_label: status.label,
 				requester_id: job.requester_id,
 				requester_name: this.escapeHtml(job.requester_name),
+				requester_pronouns: job.requester_pronouns ? this.escapeHtml(job.requester_pronouns) : '',
 				requester_avatar: job.requester_avatar || this.getDefaultAvatar(),
 				job_types: job.job_types || [],
 				can_claim: canClaim
@@ -412,6 +414,7 @@
 						<div class="zaobank-job-footer">
 							<div class="zaobank-job-poster">
 								<span>${this.escapeHtml(job.requester_name)}</span>
+								${job.requester_pronouns ? `<span class="zaobank-name-pronouns">(${this.escapeHtml(job.requester_pronouns)})</span>` : ''}
 							</div>
 							${canClaim ? `<button type="button" class="zaobank-btn zaobank-btn-primary zaobank-btn-sm zaobank-claim-job" data-job-id="${job.id}">Claim</button>` : ''}
 						</div>
@@ -469,7 +472,15 @@
 			this.initCommunityFilterPanel();
 
 			if (zaobank.hasMemberAccess) {
-				this.loadSavedProfiles(false);
+				this.loadSavedProfiles(true);
+			}
+
+			const presetTag = ZAOBank.getQueryParam('skill_tag');
+			if (presetTag) {
+				const $checkbox = $(`[name="community_skill_tags[]"][value="${presetTag}"]`);
+				if ($checkbox.length) {
+					$checkbox.prop('checked', true);
+				}
 			}
 
 			if (view === 'address-book') {
@@ -499,6 +510,17 @@
 			this.loadCommunity(false);
 		},
 
+		handleCommunityReset: function(e) {
+			e.preventDefault();
+			$('[name="community_skill_tags[]"]').prop('checked', false);
+			this.state.community.page = 1;
+			this.loadCommunity(false);
+
+			const url = new URL(window.location.href);
+			url.searchParams.delete('skill_tag');
+			window.history.replaceState({}, '', url.toString());
+		},
+
 		handleCommunityLoadMore: function(e) {
 			e.preventDefault();
 			this.state.community.page++;
@@ -510,10 +532,13 @@
 				return $(this).val();
 			}).get();
 
+			const regionValue = $('[data-community-filter="region"]').val();
+			const regionId = regionValue ? parseInt(regionValue, 10) : '';
+
 			return {
 				search: $('[data-community-filter="search"]').val() || '',
 				skill: $('[data-community-filter="skill"]').val() || '',
-				region: $('[data-community-filter="region"]').val() || '',
+				region: Number.isFinite(regionId) ? regionId : '',
 				sort: $('[data-community-filter="sort"]').val() || 'recent',
 				per_page: parseInt($('[data-community-filter="per_page"]').val(), 10) || 12,
 				skill_tags: skillTags
@@ -531,16 +556,22 @@
 
 			const filters = this.getCommunityFilters();
 			this.state.community.filters = filters;
+			this.updateCommunityResetButton(filters.skill_tags);
 
-			this.apiCall('community/users', 'GET', {
+			const params = {
 				page: this.state.community.page,
 				per_page: filters.per_page,
 				q: filters.search,
 				skill: filters.skill,
-				region: filters.region,
 				sort: filters.sort,
 				skill_tags: filters.skill_tags
-			}, function(response) {
+			};
+
+			if (filters.region) {
+				params.region = filters.region;
+			}
+
+			this.apiCall('community/users', 'GET', params, function(response) {
 				$list.attr('data-loading', 'false');
 				ZAOBank.state.community.totalPages = response.pages || 1;
 
@@ -562,6 +593,7 @@
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
+						pronouns: user.pronouns ? ZAOBank.escapeHtml(user.pronouns) : '',
 						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(64),
 						skills: user.skills ? ZAOBank.escapeHtml(user.skills) : '',
 						availability: user.availability ? ZAOBank.escapeHtml(user.availability) : '',
@@ -571,7 +603,8 @@
 						}) : [],
 						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						can_save: zaobank.isLoggedIn && zaobank.hasMemberAccess,
-						is_saved: isSaved
+						is_saved: isSaved,
+						save_label: isSaved ? 'Saved' : 'Save'
 					});
 				}).join('');
 
@@ -595,6 +628,24 @@
 			}, function() {
 				$list.attr('data-loading', 'false');
 			});
+		},
+
+		updateCommunityResetButton: function(skillTags) {
+			const $button = $('[data-action="community-reset"]');
+			if (!$button.length) return;
+
+			const tags = Array.isArray(skillTags) ? skillTags.filter(Boolean) : [];
+			if (tags.length === 0) {
+				$button.hide();
+				return;
+			}
+
+			const label = tags.length === 1
+				? `Clear “${ZAOBank.formatTagLabel(tags[0])}”`
+				: 'Clear tag filters';
+
+			$button.find('[data-role="community-reset-label"]').text(label);
+			$button.show();
 		},
 
 		setAddressBookTab: function(tabId) {
@@ -657,6 +708,7 @@
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
+						pronouns: user.pronouns ? ZAOBank.escapeHtml(user.pronouns) : '',
 						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(64),
 						skills: user.skills ? ZAOBank.escapeHtml(user.skills) : '',
 						availability: user.availability ? ZAOBank.escapeHtml(user.availability) : '',
@@ -684,7 +736,13 @@
 				const userId = parseInt($card.data('user-id'), 10);
 				const isSaved = savedIds.indexOf(userId) !== -1;
 				$button.attr('data-saved', isSaved ? 'true' : 'false');
-				$button.text(isSaved ? 'Saved' : 'Save');
+				$button.toggleClass('is-saved', isSaved);
+				const $label = $button.find('.zaobank-save-label');
+				if ($label.length) {
+					$label.text(isSaved ? 'Saved' : 'Save');
+				} else {
+					$button.text(isSaved ? 'Saved' : 'Save');
+				}
 			});
 		},
 
@@ -865,10 +923,12 @@
 					status_label: status.label,
 					requester_id: job.requester_id,
 					requester_name: ZAOBank.escapeHtml(job.requester_name),
+					requester_pronouns: job.requester_pronouns ? ZAOBank.escapeHtml(job.requester_pronouns) : '',
 					requester_avatar: job.requester_avatar || ZAOBank.getDefaultAvatar(),
 					requester_since: ZAOBank.formatDate(job.requester_registered, true),
 					provider_id: providerId || '',
 					provider_name: job.provider_name ? ZAOBank.escapeHtml(job.provider_name) : '',
+					provider_pronouns: job.provider_pronouns ? ZAOBank.escapeHtml(job.provider_pronouns) : '',
 					provider_avatar: job.provider_avatar || ZAOBank.getDefaultAvatar(),
 					exchange_id: job.exchange_id || '',
 					can_claim: canClaim,
@@ -1145,6 +1205,7 @@
 						status_class: status.class,
 						status_label: status.label,
 						provider_name: job.provider_name ? ZAOBank.escapeHtml(job.provider_name) : '',
+						provider_pronouns: job.provider_pronouns ? ZAOBank.escapeHtml(job.provider_pronouns) : '',
 						provider_avatar: job.provider_avatar || ZAOBank.getDefaultAvatar(),
 						can_complete: canComplete,
 						can_edit: canEdit,
@@ -1188,6 +1249,7 @@
 					id: profile.id,
 					name: ZAOBank.escapeHtml(profile.name || profile.display_name || ''),
 					display_name: ZAOBank.escapeHtml(profile.display_name || profile.name || ''),
+					pronouns: profile.pronouns ? ZAOBank.escapeHtml(profile.pronouns) : '',
 					avatar_url: profile.avatar_url || ZAOBank.getDefaultAvatar(96),
 					member_since: ZAOBank.formatDate(profile.registered, true),
 					bio: profile.bio ? ZAOBank.escapeHtml(profile.bio) : '',
@@ -1195,7 +1257,10 @@
 					availability: profile.availability ? ZAOBank.escapeHtml(profile.availability) : '',
 					primary_region: profile.primary_region || null,
 					skill_tags: Array.isArray(profile.skill_tags) ? profile.skill_tags.map(function(tag) {
-						return ZAOBank.formatTagLabel(tag);
+						return {
+							label: ZAOBank.formatTagLabel(tag),
+							slug: tag
+						};
 					}) : [],
 					profile_tags: Array.isArray(profile.profile_tags) ? profile.profile_tags.map(function(tag) {
 						return ZAOBank.formatTagLabel(tag);
@@ -1298,6 +1363,7 @@
 
 				const profile = response.profile || response;
 				$form.find('[name="display_name"]').val(profile.display_name || profile.name || '');
+				$form.find('[name="user_pronouns"]').val(profile.pronouns || '');
 				$form.find('[name="user_bio"]').val(profile.bio || '');
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
@@ -1357,6 +1423,7 @@
 			const profileImageVal = $form.find('[name="user_profile_image"]').val();
 			const data = {
 				display_name: $form.find('[name="display_name"]').val(),
+				user_pronouns: $form.find('[name="user_pronouns"]').val(),
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
@@ -1445,6 +1512,7 @@
 					return ZAOBank.renderTemplate(template, {
 						other_user_id: conv.other_user_id,
 						other_user_name: ZAOBank.escapeHtml(conv.other_user_name),
+						other_user_pronouns: conv.other_user_pronouns ? ZAOBank.escapeHtml(conv.other_user_pronouns) : '',
 						other_user_avatar: conv.other_user_avatar || ZAOBank.getDefaultAvatar(),
 						last_message_preview: ZAOBank.escapeHtml(ZAOBank.truncate(conv.last_message, 50)),
 						last_message_time: ZAOBank.formatRelativeTime(conv.last_message_time),
@@ -1468,6 +1536,7 @@
 				const toId = Number(msg.to_user_id || 0);
 				const otherId = fromId === currentUserId ? toId : fromId;
 				const otherName = fromId === currentUserId ? msg.to_user_name : msg.from_user_name;
+				const otherPronouns = fromId === currentUserId ? msg.to_user_pronouns : msg.from_user_pronouns;
 				const otherAvatar = fromId === currentUserId ? msg.to_user_avatar : msg.from_user_avatar;
 				const messageTime = ZAOBank.parseDate(msg.created_at);
 
@@ -1475,6 +1544,7 @@
 					convMap[otherId] = {
 						other_user_id: otherId,
 						other_user_name: otherName,
+						other_user_pronouns: otherPronouns || '',
 						other_user_avatar: otherAvatar || null,
 						last_message: msg.message,
 						last_message_time: msg.created_at,
@@ -1488,6 +1558,9 @@
 					}
 					if (!convMap[otherId].other_user_avatar && otherAvatar) {
 						convMap[otherId].other_user_avatar = otherAvatar;
+					}
+					if (!convMap[otherId].other_user_pronouns && otherPronouns) {
+						convMap[otherId].other_user_pronouns = otherPronouns;
 					}
 				}
 
@@ -1518,17 +1591,23 @@
 
 				$empty.hide();
 
+				const currentUserId = Number(zaobank.userId || 0);
+				const unreadCount = messages.filter(function(msg) {
+					return !msg.is_read && Number(msg.to_user_id || 0) === currentUserId;
+				}).length;
+
 				const template = $('#zaobank-job-update-template').html();
 				const html = messages.map(function(msg) {
-					const currentUserId = Number(zaobank.userId || 0);
 					const fromId = Number(msg.from_user_id || 0);
 					const otherId = fromId === currentUserId ? msg.to_user_id : msg.from_user_id;
 					const otherName = fromId === currentUserId ? msg.to_user_name : msg.from_user_name;
+					const otherPronouns = fromId === currentUserId ? msg.to_user_pronouns : msg.from_user_pronouns;
 					const otherAvatar = fromId === currentUserId ? msg.to_user_avatar : msg.from_user_avatar;
 
 					return ZAOBank.renderTemplate(template, {
 						other_user_avatar: otherAvatar || ZAOBank.getDefaultAvatar(),
 						other_user_name: ZAOBank.escapeHtml(otherName),
+						other_user_pronouns: otherPronouns ? ZAOBank.escapeHtml(otherPronouns) : '',
 						message: ZAOBank.escapeHtml(msg.message),
 						time: ZAOBank.formatRelativeTime(msg.created_at),
 						job_id: msg.job_id || '',
@@ -1537,6 +1616,12 @@
 				}).join('');
 
 				$list.html(html);
+
+				if (unreadCount > 0 && zaobank.hasMemberAccess) {
+					ZAOBank.apiCall('me/messages/read-type', 'POST', { message_type: 'job_update' }, function() {
+						ZAOBank.updateUnreadBadge(-unreadCount);
+					});
+				}
 			}, function() {
 				$list.attr('data-loading', 'false');
 			});
@@ -1725,6 +1810,7 @@
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.name),
+						pronouns: user.pronouns ? ZAOBank.escapeHtml(user.pronouns) : '',
 						avatar_url: user.avatar_url || ZAOBank.getDefaultAvatar(40)
 					});
 				}).join('');
@@ -1787,6 +1873,9 @@
 					const otherUserName = isEarned
 						? (exchange.requester_name || exchange.other_user_name || 'User')
 						: (exchange.provider_name || exchange.other_user_name || 'User');
+					const otherUserPronouns = isEarned
+						? (exchange.requester_pronouns || exchange.other_user_pronouns || '')
+						: (exchange.provider_pronouns || exchange.other_user_pronouns || '');
 					const otherUserAvatar = isEarned
 						? (exchange.requester_avatar || ZAOBank.getDefaultAvatar(24))
 						: (exchange.provider_avatar || ZAOBank.getDefaultAvatar(24));
@@ -1800,6 +1889,7 @@
 						type: isEarned ? 'earned' : 'spent',
 						other_user_id: otherUserId,
 						other_user_name: ZAOBank.escapeHtml(otherUserName),
+						other_user_pronouns: otherUserPronouns ? ZAOBank.escapeHtml(otherUserPronouns) : '',
 						other_user_avatar: otherUserAvatar,
 						date: ZAOBank.formatDate(exchange.created_at),
 						has_appreciation: exchange.has_appreciation,
@@ -1862,10 +1952,12 @@
 					const latestNote = person.latest_note || null;
 					const latestTag = latestNote ? latestNote.tag_slug : '';
 					const latestText = latestNote ? latestNote.note : '';
+					const latestTextHtml = latestText ? `<p data-role="latest-note-text">${ZAOBank.escapeHtml(latestText)}</p>` : '';
 
 					return ZAOBank.renderTemplate(template, {
 						other_user_id: person.other_user_id,
 						other_user_name: ZAOBank.escapeHtml(person.other_user_name || 'User'),
+						other_user_pronouns: person.other_user_pronouns ? ZAOBank.escapeHtml(person.other_user_pronouns) : '',
 						other_user_avatar: person.other_user_avatar || ZAOBank.getDefaultAvatar(48),
 						total_exchanges: person.total_exchanges || 0,
 						total_hours: person.total_hours || 0,
@@ -1876,6 +1968,7 @@
 						latest_note_tag: latestTag ? ZAOBank.escapeHtml(latestTag) : '',
 						latest_note_tag_label: latestTag ? ZAOBank.escapeHtml(ZAOBank.formatTagLabel(latestTag)) : '',
 						latest_note_text: latestText ? ZAOBank.escapeHtml(latestText) : '',
+						latest_note_text_html: latestTextHtml,
 						has_note_tags: hasNoteTags,
 						can_message: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						note_tags: noteTags
@@ -1951,6 +2044,7 @@
 					return ZAOBank.renderTemplate(template, {
 						from_user_id: app.from_user_id,
 						from_user_name: ZAOBank.escapeHtml(app.from_user_name || 'User'),
+						from_user_pronouns: app.from_user_pronouns ? ZAOBank.escapeHtml(app.from_user_pronouns) : '',
 						from_user_avatar: app.from_user_avatar || ZAOBank.getDefaultAvatar(),
 						tag_slug: app.tag_slug || '',
 						tag_label: app.tag_slug ? ZAOBank.escapeHtml(app.tag_slug) : '',
@@ -2111,6 +2205,9 @@
 			const $tab = $(e.currentTarget);
 			const tabId = $tab.data('tab') || $tab.data('filter');
 			const $container = $tab.closest('.zaobank-container');
+			if (!tabId) {
+				return;
+			}
 
 			// Update active tab
 			$tab.siblings('.zaobank-tab').removeClass('active');
@@ -2390,22 +2487,25 @@
 		},
 
 		updateUnreadBadge: function(delta) {
-			const $badge = $('.zaobank-nav-badge');
-			if (!$badge.length || !delta) return;
+			const $badges = $('.zaobank-header-badge, .zaobank-nav-badge');
+			if (!$badges.length || !delta) return;
 
-			const rawCount = $badge.attr('data-unread-count');
-			let current = rawCount ? parseInt(rawCount, 10) : parseInt($badge.text().replace('+', ''), 10);
+			$badges.each(function() {
+				const $badge = $(this);
+				const rawCount = $badge.attr('data-unread-count');
+				let current = rawCount ? parseInt(rawCount, 10) : parseInt($badge.text().replace('+', ''), 10);
 
-			if (isNaN(current)) return;
+				if (isNaN(current)) return;
 
-			const next = Math.max(0, current + delta);
-			if (next <= 0) {
-				$badge.remove();
-				return;
-			}
+				const next = Math.max(0, current + delta);
+				if (next <= 0) {
+					$badge.remove();
+					return;
+				}
 
-			$badge.attr('data-unread-count', next);
-			$badge.text(next > 99 ? '99+' : next);
+				$badge.attr('data-unread-count', next);
+				$badge.text(next > 99 ? '99+' : next);
+			});
 		},
 
 		escapeHtml: function(text) {

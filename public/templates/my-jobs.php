@@ -16,19 +16,17 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 
 	<header class="zaobank-page-header">
 		<h1 class="zaobank-page-title"><?php _e('Jobs', 'zaobank'); ?></h1>
-		<nav class="zaobank-subpage-tabs">
-			<ul role="tablist">
-				<li role="tab" class="subpage-tab">
-					<a href="<?php echo esc_url($urls['jobs']); ?>">all jobs</a>
-				</li>
-				<li role="tab" class="subpage-tab current-tab">
-					<span>my jobs</span>
-				</li>
-				<li role="tab" class="subpage-tab">
-					<a href="<?php echo esc_url($urls['job_form']); ?>">post a job</a>
-				</li>
-			</ul>
-		</nav>
+		<?php
+		$tabs = array(
+			array('label' => __('all jobs', 'zaobank'), 'url' => $urls['jobs']),
+			array('label' => __('my jobs', 'zaobank'), 'url' => $urls['my_jobs'], 'current' => true),
+		);
+		if (ZAOBank_Security::user_has_member_access()) {
+			$tabs[] = array('label' => __('new job', 'zaobank'), 'url' => $urls['job_form']);
+		}
+		$tabs[] = array('label' => __('job history', 'zaobank'), 'url' => $urls['exchanges']);
+		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
+		?>
 	</header>
 
 	<!-- Tab Navigation -->
@@ -118,6 +116,9 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 		<div class="zaobank-job-claimed-by">
 			<img src="{{provider_avatar}}" alt="" class="zaobank-avatar-tiny">
 			<span><?php _e('Claimed by', 'zaobank'); ?> {{provider_name}}</span>
+			{{#if provider_pronouns}}
+			<span class="zaobank-name-pronouns">({{provider_pronouns}})</span>
+			{{/if}}
 		</div>
 		{{/if}}
 

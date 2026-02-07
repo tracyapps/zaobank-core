@@ -122,6 +122,7 @@ function zaobank_is_app_page() {
 		has_shortcode($content, 'zaobank_profile') ||
 		has_shortcode($content, 'zaobank_profile_edit') ||
 		has_shortcode($content, 'zaobank_messages') ||
+		has_shortcode($content, 'zaobank_more') ||
 		has_shortcode($content, 'zaobank_conversation') ||
 		has_shortcode($content, 'zaobank_exchanges') ||
 		has_shortcode($content, 'zaobank_appreciations')
@@ -189,6 +190,7 @@ function zaobank_current_template() {
 		'zaobank_profile'       => 'profile',
 		'zaobank_profile_edit'  => 'profile-edit',
 		'zaobank_messages'      => 'messages',
+		'zaobank_more'          => 'more',
 		'zaobank_conversation'  => 'conversation',
 		'zaobank_exchanges'     => 'exchanges',
 		'zaobank_appreciations' => 'appreciations',

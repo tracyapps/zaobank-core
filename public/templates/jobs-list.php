@@ -24,8 +24,9 @@ $initial_status = isset($status) ? $status : 'available';
 			array('label' => __('my jobs', 'zaobank'), 'url' => $urls['my_jobs']),
 		);
 		if (ZAOBank_Security::user_has_member_access()) {
-			$tabs[] = array('label' => __('post a job', 'zaobank'), 'url' => $urls['job_form']);
+			$tabs[] = array('label' => __('new job', 'zaobank'), 'url' => $urls['job_form']);
 		}
+		$tabs[] = array('label' => __('job history', 'zaobank'), 'url' => $urls['exchanges']);
 		include ZAOBANK_PLUGIN_DIR . 'public/templates/components/subpage-tabs.php';
 		?>
 	</header>
@@ -33,25 +34,7 @@ $initial_status = isset($status) ? $status : 'available';
 	<!-- Filters -->
 	<div class="zaobank-filters">
 		<div class="zaobank-filter-row">
-			<div class="zaobank-filter-item">
-				<label for="zaobank-region-filter" class="zaobank-sr-only"><?php _e('Filter by region', 'zaobank'); ?></label>
-				<select id="zaobank-region-filter" class="zaobank-select" data-filter="region">
-					<option value=""><?php _e('All Regions', 'zaobank'); ?></option>
-				</select>
-			</div>
-			<div class="zaobank-filter-item zaobank-search-wrapper">
-				<label for="zaobank-search" class="zaobank-sr-only"><?php _e('Search jobs', 'zaobank'); ?></label>
-				<input type="search"
-				       id="zaobank-search"
-				       class="zaobank-input zaobank-search-input"
-				       placeholder="<?php esc_attr_e('Search jobs...', 'zaobank'); ?>"
-				       data-filter="search">
-				<svg class="zaobank-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<circle cx="11" cy="11" r="8"/>
-					<line x1="21" y1="21" x2="16.65" y2="16.65"/>
-				</svg>
-			</div>
-			<div class="zaobank-filter-item">
+			<div class="zaobank-filter-item zaobank-filter-sticky">
 				<button type="button" id="zaobank-filter-toggle" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm">
 					<svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="4" y1="21" x2="4" y2="14"/>
@@ -67,11 +50,26 @@ $initial_status = isset($status) ? $status : 'available';
 					<?php _e('Job Types', 'zaobank'); ?>
 				</button>
 			</div>
+			<div class="zaobank-filter-item zaobank-search-wrapper zaobank-filter-item-grow">
+				<label for="zaobank-search" class="zaobank-sr-only"><?php _e('Search jobs', 'zaobank'); ?></label>
+				<input type="search"
+				       id="zaobank-search"
+				       class="zaobank-input zaobank-search-input"
+				       placeholder="<?php esc_attr_e('Search jobs...', 'zaobank'); ?>"
+				       data-filter="search">
+				<svg class="zaobank-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<circle cx="11" cy="11" r="8"/>
+					<line x1="21" y1="21" x2="16.65" y2="16.65"/>
+				</svg>
+			</div>
+			<div class="zaobank-filter-item">
+				<label for="zaobank-region-filter" class="zaobank-sr-only"><?php _e('Filter by region', 'zaobank'); ?></label>
+				<select id="zaobank-region-filter" class="zaobank-select" data-filter="region">
+					<option value=""><?php _e('All Regions', 'zaobank'); ?></option>
+				</select>
+			</div>
 		</div>
 		<div class="zaobank-filter-row zaobank-filter-row-secondary">
-			<div class="zaobank-filter-item">
-				<span class="zaobank-filter-summary" data-role="jobs-summary"><?php _e('Showing 0-0 of 0', 'zaobank'); ?></span>
-			</div>
 			<div class="zaobank-filter-item">
 				<label class="zaobank-sr-only" for="zaobank-sort-filter"><?php _e('Sort jobs', 'zaobank'); ?></label>
 				<select id="zaobank-sort-filter" class="zaobank-select" data-filter="sort">
@@ -89,6 +87,11 @@ $initial_status = isset($status) ? $status : 'available';
 					<option value="24">24</option>
 					<option value="48">48</option>
 				</select>
+			</div>
+		</div>
+		<div class="zaobank-filter-row zaobank-filter-row-summary">
+			<div class="zaobank-filter-item">
+				<span class="zaobank-filter-summary" data-role="jobs-summary"><?php _e('Showing 0-0 of 0', 'zaobank'); ?></span>
 			</div>
 		</div>
 	</div>
@@ -200,6 +203,9 @@ $initial_status = isset($status) ? $status : 'available';
 			<a href="<?php echo esc_url($urls['profile']); ?>?user_id={{requester_id}}" class="zaobank-job-poster">
 				<img src="{{requester_avatar}}" alt="" class="zaobank-avatar-small">
 				<span>{{requester_name}}</span>
+				{{#if requester_pronouns}}
+				<span class="zaobank-name-pronouns">({{requester_pronouns}})</span>
+				{{/if}}
 			</a>
 			{{#if can_claim}}
 			<button type="button" class="zaobank-btn zaobank-btn-primary zaobank-btn-sm zaobank-claim-job" data-job-id="{{id}}">

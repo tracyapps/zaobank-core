@@ -28,6 +28,7 @@ class ZAOBank_Shortcodes {
 		add_shortcode('zaobank_profile', array($this, 'render_profile'));
 		add_shortcode('zaobank_profile_edit', array($this, 'render_profile_edit'));
 		add_shortcode('zaobank_messages', array($this, 'render_messages'));
+		add_shortcode('zaobank_more', array($this, 'render_more'));
 		add_shortcode('zaobank_conversation', array($this, 'render_conversation'));
 		add_shortcode('zaobank_community', array($this, 'render_community'));
 		add_shortcode('zaobank_exchanges', array($this, 'render_exchanges'));
@@ -160,6 +161,21 @@ class ZAOBank_Shortcodes {
 		}
 
 		return $this->load_template('messages');
+	}
+
+	/**
+	 * Render more template.
+	 */
+	public function render_more($atts) {
+		if (!is_user_logged_in()) {
+			return $this->render_login_required(__('Please log in to view this page.', 'zaobank'));
+		}
+
+		$atts = shortcode_atts(array(
+			'view' => isset($_GET['view']) ? sanitize_key($_GET['view']) : 'messages'
+		), $atts);
+
+		return $this->load_template('more', $atts);
 	}
 
 	/**
@@ -357,6 +373,7 @@ class ZAOBank_Shortcodes {
 			'profile' => 'timebank-profile',
 			'profile_edit' => 'timebank-profile-edit',
 			'messages' => 'timebank-messages',
+			'more' => 'timebank-more',
 			'exchanges' => 'timebank-exchanges',
 			'appreciations' => 'timebank-appreciations'
 		));
@@ -388,6 +405,7 @@ class ZAOBank_Shortcodes {
 			'profile'       => __('User profile view', 'zaobank'),
 			'profile-edit'  => __('Profile edit form', 'zaobank'),
 			'messages'      => __('Conversations list', 'zaobank'),
+			'more'          => __('More menu (messages, notifications, profile edit)', 'zaobank'),
 			'conversation'  => __('Single conversation thread', 'zaobank'),
 			'exchanges'     => __('Exchange history', 'zaobank'),
 			'appreciations' => __('Appreciations received/given', 'zaobank'),

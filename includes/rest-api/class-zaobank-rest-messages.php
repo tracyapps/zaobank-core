@@ -47,6 +47,20 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 			)
 		));
 
+		// Mark all messages of a type as read
+		register_rest_route($this->namespace, '/me/messages/read-type', array(
+			'methods' => WP_REST_Server::CREATABLE,
+			'callback' => array($this, 'mark_type_read'),
+			'permission_callback' => array($this, 'check_member_access'),
+			'args' => array(
+				'message_type' => array(
+					'required' => true,
+					'type' => 'string',
+					'description' => __('Message type to mark as read.', 'zaobank')
+				)
+			)
+		));
+
 		// Archive a conversation
 		register_rest_route($this->namespace, '/me/messages/archive', array(
 			'methods' => WP_REST_Server::CREATABLE,
@@ -140,6 +154,26 @@ class ZAOBank_REST_Messages extends ZAOBank_REST_Controller {
 
 		return $this->success_response(array(
 			'message' => __('Conversation marked as read', 'zaobank')
+		));
+	}
+
+	public function mark_type_read($request) {
+		$user_id = get_current_user_id();
+		$message_type = sanitize_key($request->get_param('message_type'));
+
+		if (empty($message_type)) {
+			return $this->error_response(
+				'invalid_message_type',
+				__('Invalid message type.', 'zaobank'),
+				400
+			);
+		}
+
+		$count = ZAOBank_Messages::mark_type_read($user_id, $message_type);
+
+		return $this->success_response(array(
+			'message' => __('Messages marked as read', 'zaobank'),
+			'count' => $count
 		));
 	}
 

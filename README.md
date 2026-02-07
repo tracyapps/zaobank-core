@@ -231,6 +231,7 @@ fetch('/wp-json/zaobank/v1/me/profile', {
   },
   body: JSON.stringify({
     display_name: "Jane Doe",
+    user_pronouns: "she/her",
     user_bio: "Community organizer and plant lover"
   })
 })
@@ -373,6 +374,7 @@ The plugin registers two ACF field groups:
 
 ### User Profile
 - Profile Image (image, return format: ID) - Custom profile photo, replaces Gravatar
+- Pronouns (text)
 - Skills I Can Offer (textarea)
 - Skill Tags (checkbox)
 - Availability (text)
@@ -477,6 +479,7 @@ Then edit the theme copy to customize the layout while keeping the data attribut
 | `profile.php` | User profile view |
 | `profile-edit.php` | Profile edit form |
 | `messages.php` | Conversations list / job updates view |
+| `more.php` | More menu (messages, job notifications, profile edit shortcuts) |
 | `conversation.php` | Single conversation thread |
 | `exchanges.php` | Exchange history (shows appreciation status + people worked with) |
 | `appreciations.php` | Appreciations list |
@@ -737,6 +740,7 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 | `[zaobank_profile]` | User profile view | `user_id` (optional, defaults to current user) |
 | `[zaobank_profile_edit]` | Profile edit form | - |
 | `[zaobank_messages]` | Conversations list; renders conversation view when `?user_id=` is in the URL, job updates view when `?view=updates` | - |
+| `[zaobank_more]` | More menu (messages, job notifications, profile edit shortcuts) | `view` (optional, `messages` or `updates`) |
 | `[zaobank_conversation]` | Single conversation thread (standalone) | `user_id` |
 | `[zaobank_exchanges]` | Exchange history | - |
 | `[zaobank_appreciations]` | Appreciations received/given | `user_id` (optional) |
@@ -754,6 +758,7 @@ Create WordPress pages for each section:
 - `/timebank-profile/` → `[zaobank_profile]`
 - `/timebank-profile-edit/` → `[zaobank_profile_edit]`
 - `/timebank-messages/` → `[zaobank_messages]` (also handles `?user_id=X` for conversation view and `?view=updates` for job updates)
+- `/timebank-more/` → `[zaobank_more]` (messages, job notifications, profile edit shortcuts)
 - `/timebank-exchanges/` → `[zaobank_exchanges]`
 - `/timebank-appreciations/` → `[zaobank_appreciations]`
 
@@ -771,6 +776,7 @@ Create an `/app/` parent page with child pages. This enables easy AAM protection
   /app/profile/          [zaobank_profile]
   /app/profile-edit/     [zaobank_profile_edit]
   /app/messages/         [zaobank_messages]
+  /app/more/             [zaobank_more]
   /app/exchanges/        [zaobank_exchanges]
   /app/appreciations/    [zaobank_appreciations]
 ```
