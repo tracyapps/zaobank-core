@@ -33,6 +33,7 @@ class ZAOBank_Shortcodes {
 		add_shortcode('zaobank_community', array($this, 'render_community'));
 		add_shortcode('zaobank_exchanges', array($this, 'render_exchanges'));
 		add_shortcode('zaobank_appreciations', array($this, 'render_appreciations'));
+		add_shortcode('zaobank_moderation', array($this, 'render_moderation'));
 	}
 
 	/**
@@ -242,6 +243,25 @@ class ZAOBank_Shortcodes {
 	}
 
 	/**
+	 * Render moderation dashboard template.
+	 */
+	public function render_moderation($atts) {
+		if (!is_user_logged_in()) {
+			return $this->render_login_required(__('Please log in to access moderation.', 'zaobank'));
+		}
+
+		if (!ZAOBank_Security::can_review_flags()) {
+			return '<div class="zaobank-error">' . __('You do not have access to the moderation dashboard.', 'zaobank') . '</div>';
+		}
+
+		$atts = shortcode_atts(array(
+			'view' => isset($_GET['view']) ? sanitize_key($_GET['view']) : 'users'
+		), $atts);
+
+		return $this->load_template('moderation', $atts);
+	}
+
+	/**
 	 * Load a template file with theme override support.
 	 *
 	 * Template lookup order:
@@ -410,6 +430,7 @@ class ZAOBank_Shortcodes {
 			'exchanges'     => __('Exchange history', 'zaobank'),
 			'appreciations' => __('Appreciations received/given', 'zaobank'),
 			'components/bottom-nav' => __('Mobile bottom navigation bar', 'zaobank'),
+			'moderation' => __('Moderation dashboard (Users, Flags, Settings)', 'zaobank'),
 		);
 	}
 

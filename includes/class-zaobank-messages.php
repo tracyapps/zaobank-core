@@ -11,7 +11,9 @@ class ZAOBank_Messages {
 		global $wpdb;
 		$table = ZAOBank_Database::get_messages_table();
 
-		if (empty($data['from_user_id']) || empty($data['to_user_id']) || empty($data['message'])) {
+		// Allow from_user_id = 0 for system messages (mod_alert)
+		$is_system_message = isset($data['message_type']) && $data['message_type'] === 'mod_alert';
+		if ((!$is_system_message && empty($data['from_user_id'])) || empty($data['to_user_id']) || empty($data['message'])) {
 			return new WP_Error(
 				'missing_message_data',
 				__('Missing required message data', 'zaobank')

@@ -25,6 +25,14 @@
 				savedIds: [],
 				savedLoaded: false,
 				addressTab: 'worked-with'
+			},
+			moderation: {
+				usersPage: 1,
+				usersTotalPages: 1,
+				flagsPage: 1,
+				flagsTotalPages: 1,
+				usersFilters: { q: '', role: '' },
+				flagsFilters: { status: 'open', type: '' }
 			}
 		},
 
@@ -86,6 +94,21 @@
 			$(document).on('click', '.zaobank-archive-conversation', this.handleArchiveConversation.bind(this));
 			$(document).on('input', '[data-action="message-user-search"]', this.debounce(this.handleMessageUserSearch.bind(this), 250));
 
+			// Moderation
+			$(document).on('input', '[data-mod-filter="search"]', this.debounce(this.handleModSearchChange.bind(this), 300));
+			$(document).on('change', '[data-mod-filter="role"]', this.handleModRoleFilterChange.bind(this));
+			$(document).on('change', '[data-mod-filter="flag-status"]', this.handleModFlagStatusChange.bind(this));
+			$(document).on('change', '[data-mod-filter="flag-type"]', this.handleModFlagTypeChange.bind(this));
+			$(document).on('change', '.zaobank-mod-role-select', this.handleModRoleChange.bind(this));
+			$(document).on('click', '[data-action="mod-flag-review"]', this.handleModFlagReview.bind(this));
+			$(document).on('click', '[data-action="mod-flag-resolve"]', this.handleModFlagResolveOpen.bind(this));
+			$(document).on('click', '[data-action="mod-flag-confirm-resolve"]', this.handleModFlagResolveConfirm.bind(this));
+			$(document).on('click', '[data-action="mod-flag-cancel-resolve"]', this.handleModFlagResolveCancel.bind(this));
+			$(document).on('click', '[data-action="mod-flag-restore"]', this.handleModFlagRestore.bind(this));
+			$(document).on('click', '.zaobank-save-mod-settings', this.handleSaveModSettings.bind(this));
+			$(document).on('click', '[data-action="mod-load-more-users"]', this.handleModLoadMoreUsers.bind(this));
+			$(document).on('click', '[data-action="mod-load-more-flags"]', this.handleModLoadMoreFlags.bind(this));
+
 		},
 
 		initComponents: function() {
@@ -102,7 +125,8 @@
 				'messages': this.initMessages,
 				'conversation': this.initConversation,
 				'exchanges': this.initExchanges,
-				'appreciations': this.initAppreciations
+				'appreciations': this.initAppreciations,
+				'moderation': this.initModeration
 			};
 
 			$('[data-component]').each(function() {
@@ -2551,6 +2575,335 @@
 
 		getDefaultAvatar: function(size = 48) {
 			return `https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&s=${size}`;
+		},
+
+		// =========================================================================
+		// Moderation Dashboard
+		// =========================================================================
+
+		initModeration: function($container) {
+			var view = $container.data('view') || 'users';
+
+			if (view === 'users') {
+				this.loadModUsers();
+			} else if (view === 'flags') {
+				this.loadModFlags();
+			} else if (view === 'settings') {
+				this.loadModSettings();
+			}
+
+			// Mark mod alerts as read when visiting moderation page
+			if (zaobank.hasModAccess && zaobank.modUnreadCount > 0) {
+				this.apiCall('moderation/alerts/read', 'POST', {}, function() {
+					$('.zaobank-mod-badge').remove();
+				});
+			}
+		},
+
+		loadModUsers: function(append) {
+			var $list = $('.zaobank-moderation-users-list');
+			var $loadMore = $('[data-target="users"]');
+			var $empty = $('[data-empty="mod-users"]');
+			var self = this;
+
+			if (!append) {
+				this.state.moderation.usersPage = 1;
+				$list.attr('data-loading', 'true').html(
+					'<div class="zaobank-loading-state"><div class="zaobank-spinner"></div><p>Loading users...</p></div>'
+				);
+				$empty.hide();
+			}
+
+			var params = {
+				page: this.state.moderation.usersPage,
+				per_page: 20,
+				q: this.state.moderation.usersFilters.q,
+				role: this.state.moderation.usersFilters.role,
+			};
+
+			this.apiCall('moderation/users', 'GET', params, function(response) {
+				$list.attr('data-loading', 'false');
+				var html = '';
+
+				if (response.users && response.users.length) {
+					html = response.users.map(function(user) {
+						return self.renderModUserCard(user);
+					}).join('');
+				}
+
+				if (append) {
+					$list.append(html);
+				} else {
+					$list.html(html);
+				}
+
+				self.state.moderation.usersTotalPages = response.pages || 1;
+
+				if (self.state.moderation.usersPage < self.state.moderation.usersTotalPages) {
+					$loadMore.show();
+				} else {
+					$loadMore.hide();
+				}
+
+				if (!response.users || !response.users.length) {
+					if (!append) {
+						$list.empty();
+						$empty.show();
+					}
+				} else {
+					$empty.hide();
+				}
+			});
+		},
+
+		renderModUserCard: function(user) {
+			var template = $('#zaobank-mod-user-card-template').html();
+			if (!template) return '';
+
+			var isAdmin = user.role === 'administrator';
+
+			return this.renderTemplate(template, {
+				id: user.id,
+				display_name: this.escapeHtml(user.display_name),
+				email: this.escapeHtml(user.email),
+				avatar_url: user.avatar_url,
+				registered_date: this.formatDate(user.user_registered),
+				role: user.role,
+				flag_count: user.flag_count || 0,
+				is_member: user.role === 'member',
+				is_limited: user.role === 'member_limited',
+				is_leadership: user.role === 'leadership_team',
+				is_admin: isAdmin,
+				show_leadership: !isAdmin
+			});
+		},
+
+		loadModFlags: function(append) {
+			var $list = $('.zaobank-moderation-flags-list');
+			var $loadMore = $('[data-target="flags"]');
+			var $empty = $('[data-empty="mod-flags"]');
+			var self = this;
+
+			if (!append) {
+				this.state.moderation.flagsPage = 1;
+				$list.attr('data-loading', 'true').html(
+					'<div class="zaobank-loading-state"><div class="zaobank-spinner"></div><p>Loading flags...</p></div>'
+				);
+				$empty.hide();
+			}
+
+			var params = {
+				page: this.state.moderation.flagsPage,
+				per_page: 20,
+				status: this.state.moderation.flagsFilters.status,
+				type: this.state.moderation.flagsFilters.type,
+			};
+
+			this.apiCall('moderation/flags', 'GET', params, function(response) {
+				$list.attr('data-loading', 'false');
+				var html = '';
+
+				if (response.flags && response.flags.length) {
+					html = response.flags.map(function(flag) {
+						return self.renderModFlagCard(flag);
+					}).join('');
+				}
+
+				if (append) {
+					$list.append(html);
+				} else {
+					$list.html(html);
+				}
+
+				self.state.moderation.flagsTotalPages = response.pages || 1;
+
+				if (self.state.moderation.flagsPage < self.state.moderation.flagsTotalPages) {
+					$loadMore.show();
+				} else {
+					$loadMore.hide();
+				}
+
+				if (!response.flags || !response.flags.length) {
+					if (!append) {
+						$list.empty();
+						$empty.show();
+					}
+				} else {
+					$empty.hide();
+				}
+			});
+		},
+
+		renderModFlagCard: function(flag) {
+			var template = $('#zaobank-mod-flag-card-template').html();
+			if (!template) return '';
+
+			var statusLabels = {
+				'open': 'Open',
+				'under_review': 'Under Review',
+				'resolved': 'Resolved'
+			};
+
+			return this.renderTemplate(template, {
+				id: flag.id,
+				flagged_item_type: flag.flagged_item_type,
+				flagged_item_id: flag.flagged_item_id,
+				flagged_user_id: flag.flagged_user_id || '',
+				flagged_user_name: flag.flagged_user_name || '',
+				reporter_name: flag.reporter_name || '',
+				reason_label: flag.reason_label || flag.reason_slug,
+				context_note: flag.context_note ? this.escapeHtml(flag.context_note) : '',
+				item_preview: flag.item_preview ? this.escapeHtml(flag.item_preview) : '',
+				status: flag.status,
+				status_label: statusLabels[flag.status] || flag.status,
+				status_class: flag.status,
+				created_at: this.formatDate(flag.created_at),
+				can_review: flag.status === 'open',
+				can_resolve: flag.status === 'open' || flag.status === 'under_review'
+			});
+		},
+
+		loadModSettings: function() {
+			var self = this;
+			this.apiCall('moderation/settings', 'GET', {}, function(response) {
+				$('[data-setting="auto_downgrade_threshold"]').val(response.auto_downgrade_threshold || 3);
+				$('[data-setting="flag_threshold"]').val(response.flag_threshold || 1);
+				$('[data-setting="auto_hide_flagged"]').prop('checked', response.auto_hide_flagged);
+			});
+		},
+
+		// Moderation filter handlers
+		handleModSearchChange: function(e) {
+			this.state.moderation.usersFilters.q = $(e.currentTarget).val();
+			this.loadModUsers();
+		},
+
+		handleModRoleFilterChange: function(e) {
+			this.state.moderation.usersFilters.role = $(e.currentTarget).val();
+			this.loadModUsers();
+		},
+
+		handleModFlagStatusChange: function(e) {
+			this.state.moderation.flagsFilters.status = $(e.currentTarget).val();
+			this.loadModFlags();
+		},
+
+		handleModFlagTypeChange: function(e) {
+			this.state.moderation.flagsFilters.type = $(e.currentTarget).val();
+			this.loadModFlags();
+		},
+
+		handleModLoadMoreUsers: function() {
+			this.state.moderation.usersPage++;
+			this.loadModUsers(true);
+		},
+
+		handleModLoadMoreFlags: function() {
+			this.state.moderation.flagsPage++;
+			this.loadModFlags(true);
+		},
+
+		// Role change handler
+		handleModRoleChange: function(e) {
+			var $select = $(e.currentTarget);
+			var userId = $select.data('user-id');
+			var newRole = $select.val();
+			var currentRole = $select.data('current-role');
+
+			if (newRole === currentRole) return;
+
+			var roleLabels = {
+				'member': 'Member',
+				'member_limited': 'Limited',
+				'leadership_team': 'Leadership'
+			};
+			var label = roleLabels[newRole] || newRole;
+
+			if (!confirm('Change this user\'s role to "' + label + '"?')) {
+				$select.val(currentRole);
+				return;
+			}
+
+			this.apiCall('moderation/users/' + userId + '/role', 'PUT', {
+				role: newRole
+			}, function() {
+				$select.data('current-role', newRole);
+				ZAOBank.showToast('Role updated.', 'success');
+			}, function() {
+				$select.val(currentRole);
+			});
+		},
+
+		// Flag action handlers
+		handleModFlagReview: function(e) {
+			var flagId = $(e.currentTarget).data('flag-id');
+			var self = this;
+
+			this.apiCall('moderation/flags/' + flagId, 'PUT', {
+				status: 'under_review'
+			}, function() {
+				ZAOBank.showToast('Flag marked under review.', 'success');
+				self.loadModFlags();
+			});
+		},
+
+		handleModFlagResolveOpen: function(e) {
+			var $card = $(e.currentTarget).closest('.zaobank-mod-flag-card');
+			$card.find('.zaobank-mod-flag-resolve-form').removeAttr('hidden');
+			$card.find('.zaobank-mod-flag-actions').hide();
+		},
+
+		handleModFlagResolveConfirm: function(e) {
+			var $card = $(e.currentTarget).closest('.zaobank-mod-flag-card');
+			var flagId = $card.data('flag-id');
+			var note = $card.find('.zaobank-textarea').val();
+			var self = this;
+
+			this.apiCall('moderation/flags/' + flagId, 'PUT', {
+				status: 'resolved',
+				resolution_note: note
+			}, function() {
+				ZAOBank.showToast('Flag resolved.', 'success');
+				self.loadModFlags();
+			});
+		},
+
+		handleModFlagResolveCancel: function(e) {
+			var $card = $(e.currentTarget).closest('.zaobank-mod-flag-card');
+			$card.find('.zaobank-mod-flag-resolve-form').attr('hidden', '');
+			$card.find('.zaobank-mod-flag-actions').show();
+		},
+
+		handleModFlagRestore: function(e) {
+			var flagId = $(e.currentTarget).data('flag-id');
+			var self = this;
+
+			if (!confirm('Restore this content and resolve the flag?')) return;
+
+			this.apiCall('moderation/flags/' + flagId, 'PUT', {
+				status: 'resolved',
+				resolution_note: 'Content restored.',
+				restore: true
+			}, function() {
+				ZAOBank.showToast('Content restored and flag resolved.', 'success');
+				self.loadModFlags();
+			});
+		},
+
+		handleSaveModSettings: function() {
+			var settings = {
+				auto_downgrade_threshold: parseInt($('[data-setting="auto_downgrade_threshold"]').val()) || 3,
+				flag_threshold: parseInt($('[data-setting="flag_threshold"]').val()) || 1,
+				auto_hide_flagged: $('[data-setting="auto_hide_flagged"]').is(':checked')
+			};
+
+			var $status = $('.zaobank-mod-settings-status');
+
+			this.apiCall('moderation/settings', 'PUT', settings, function() {
+				ZAOBank.showToast('Settings saved.', 'success');
+				$status.text('Settings saved.').show();
+				setTimeout(function() { $status.fadeOut(); }, 3000);
+			});
 		},
 
 		debounce: function(func, wait) {

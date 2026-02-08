@@ -75,6 +75,21 @@ class ZAOBank_Flags {
 			'item_id' => $data['flagged_item_id']
 		));
 
+		// Notify moderators about the new flag
+		self::send_mod_alert(
+			sprintf(
+				__('New %s flag: %s', 'zaobank'),
+				$data['flagged_item_type'],
+				$data['reason_slug']
+			),
+			isset($data['flagged_user_id']) ? (int) $data['flagged_user_id'] : 0
+		);
+
+		// Check auto-downgrade threshold for user flags
+		if (!empty($data['flagged_user_id'])) {
+			self::check_auto_downgrade((int) $data['flagged_user_id']);
+		}
+
 		return $flag_id;
 	}
 
@@ -228,6 +243,77 @@ class ZAOBank_Flags {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Check if a user should be auto-downgraded based on flag count.
+	 */
+	public static function check_auto_downgrade($user_id) {
+		$threshold = (int) get_option('zaobank_flag_auto_downgrade_threshold', 3);
+		if ($threshold < 1) {
+			return;
+		}
+
+		global $wpdb;
+		$table = ZAOBank_Database::get_flags_table();
+
+		$open_count = (int) $wpdb->get_var($wpdb->prepare(
+			"SELECT COUNT(*) FROM $table
+			 WHERE flagged_user_id = %d AND status IN ('open', 'under_review')",
+			$user_id
+		));
+
+		if ($open_count >= $threshold) {
+			$user = get_userdata($user_id);
+			if (!$user) {
+				return;
+			}
+
+			// Only downgrade 'member' role, never admin/leadership
+			if (!in_array('member', $user->roles, true)) {
+				return;
+			}
+
+			$user->set_role('member_limited');
+
+			ZAOBank_Security::log_security_event('auto_downgrade', array(
+				'user_id'    => $user_id,
+				'flag_count' => $open_count,
+				'threshold'  => $threshold,
+			));
+
+			self::send_mod_alert(
+				sprintf(
+					__('User %s was auto-downgraded to limited member after %d flags.', 'zaobank'),
+					$user->display_name,
+					$open_count
+				),
+				$user_id
+			);
+		}
+	}
+
+	/**
+	 * Send a mod_alert message to all moderators.
+	 *
+	 * @param string $message         Alert message text.
+	 * @param int    $related_user_id Optional related user ID (stored in job_id column).
+	 */
+	public static function send_mod_alert($message, $related_user_id = 0) {
+		$mod_users = get_users(array(
+			'role__in' => array('administrator', 'leadership_team'),
+			'fields'   => 'ID',
+		));
+
+		foreach ($mod_users as $mod_user_id) {
+			ZAOBank_Messages::create_message(array(
+				'from_user_id' => 0,
+				'to_user_id'   => (int) $mod_user_id,
+				'message'      => sanitize_text_field($message),
+				'message_type' => 'mod_alert',
+				'job_id'       => (int) $related_user_id,
+			));
+		}
 	}
 
 	/**

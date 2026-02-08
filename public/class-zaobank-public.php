@@ -46,7 +46,9 @@ class ZAOBank_Public {
 				'isLoggedIn' => is_user_logged_in(),
 				'hasMemberAccess' => ZAOBank_Security::user_has_member_access(),
 				'appreciationTags' => array_values(get_option('zaobank_appreciation_tags', array())),
-				'privateNoteTags' => array_values(get_option('zaobank_private_note_tags', array()))
+				'privateNoteTags' => array_values(get_option('zaobank_private_note_tags', array())),
+				'hasModAccess' => function_exists('zaobank_has_mod_access') ? zaobank_has_mod_access() : false,
+				'modUnreadCount' => function_exists('zaobank_mod_unread_count') ? zaobank_mod_unread_count() : 0
 			)
 		);
 	}

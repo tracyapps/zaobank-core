@@ -282,5 +282,22 @@ class ZAOBank_Activator {
 				$editor->add_cap($cap);
 			}
 		}
+
+		// Add moderation capabilities to leadership_team role
+		$leadership = get_role('leadership_team');
+		if ($leadership) {
+			$leadership_caps = array(
+				'review_zaobank_flags',
+				'manage_zaobank_flags',
+				'manage_zaobank_users',
+				'edit_timebank_jobs',
+				'read_timebank_job',
+				'edit_others_timebank_jobs',
+			);
+
+			foreach ($leadership_caps as $cap) {
+				$leadership->add_cap($cap);
+			}
+		}
 	}
 }

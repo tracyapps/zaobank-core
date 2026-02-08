@@ -78,6 +78,7 @@ class ZAOBank_Core {
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-flags.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-messages.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-notes.php';
+		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-moderation.php';
 
 		// Admin
 		require_once ZAOBANK_PLUGIN_DIR . 'admin/class-zaobank-admin.php';
@@ -140,6 +141,28 @@ class ZAOBank_Core {
 		// Register shortcodes
 		$shortcodes = new ZAOBank_Shortcodes();
 		$this->loader->add_action('init', $shortcodes, 'register_shortcodes');
+
+		// Notify moderators when a new user registers
+		$this->loader->add_action('user_register', $this, 'notify_mod_on_registration');
+	}
+
+	/**
+	 * Send a mod_alert when a new user registers.
+	 */
+	public function notify_mod_on_registration($user_id) {
+		$user = get_userdata($user_id);
+		if (!$user) {
+			return;
+		}
+
+		ZAOBank_Flags::send_mod_alert(
+			sprintf(
+				__('New user registered: %s (%s). Please verify their account.', 'zaobank'),
+				$user->display_name,
+				$user->user_email
+			),
+			$user_id
+		);
 	}
 
 	/**
@@ -153,6 +176,7 @@ class ZAOBank_Core {
 		$rest_flags = new ZAOBank_REST_Flags();
 		$rest_messages = new ZAOBank_REST_Messages();
 		$rest_notes = new ZAOBank_REST_Notes();
+		$rest_moderation = new ZAOBank_REST_Moderation();
 
 		$this->loader->add_action('rest_api_init', $rest_jobs, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_user, 'register_routes');
@@ -161,6 +185,7 @@ class ZAOBank_Core {
 		$this->loader->add_action('rest_api_init', $rest_flags, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_messages, 'register_routes');
 		$this->loader->add_action('rest_api_init', $rest_notes, 'register_routes');
+		$this->loader->add_action('rest_api_init', $rest_moderation, 'register_routes');
 	}
 
 	/**

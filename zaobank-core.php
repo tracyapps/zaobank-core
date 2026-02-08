@@ -125,7 +125,8 @@ function zaobank_is_app_page() {
 		has_shortcode($content, 'zaobank_more') ||
 		has_shortcode($content, 'zaobank_conversation') ||
 		has_shortcode($content, 'zaobank_exchanges') ||
-		has_shortcode($content, 'zaobank_appreciations')
+		has_shortcode($content, 'zaobank_appreciations') ||
+		has_shortcode($content, 'zaobank_moderation')
 	);
 }
 
@@ -194,6 +195,7 @@ function zaobank_current_template() {
 		'zaobank_conversation'  => 'conversation',
 		'zaobank_exchanges'     => 'exchanges',
 		'zaobank_appreciations' => 'appreciations',
+		'zaobank_moderation'    => 'moderation',
 	);
 
 	foreach ($shortcode_map as $shortcode => $template) {
@@ -266,4 +268,45 @@ function zaobank_bottom_nav() {
  */
 function zaobank_available_templates() {
 	return ZAOBank_Shortcodes::get_available_templates();
+}
+
+/**
+ * Check if current user has moderation access.
+ *
+ * Usage in theme:
+ *   if (zaobank_has_mod_access()) {
+ *       // Show moderation icon
+ *   }
+ *
+ * @return bool True if user can review flags.
+ */
+function zaobank_has_mod_access() {
+	return is_user_logged_in() && ZAOBank_Security::can_review_flags();
+}
+
+/**
+ * Get unread moderation alert count for current user.
+ *
+ * Usage in theme:
+ *   $count = zaobank_mod_unread_count();
+ *
+ * @return int Number of unread mod alerts.
+ */
+function zaobank_mod_unread_count() {
+	if (!is_user_logged_in()) {
+		return 0;
+	}
+
+	if (!ZAOBank_Security::can_review_flags()) {
+		return 0;
+	}
+
+	global $wpdb;
+	$table   = ZAOBank_Database::get_messages_table();
+	$user_id = get_current_user_id();
+
+	return (int) $wpdb->get_var($wpdb->prepare(
+		"SELECT COUNT(*) FROM $table WHERE to_user_id = %d AND message_type = 'mod_alert' AND is_read = 0",
+		$user_id
+	));
 }
