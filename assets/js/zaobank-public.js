@@ -1917,7 +1917,8 @@
 						other_user_avatar: otherUserAvatar,
 						date: ZAOBank.formatDate(exchange.created_at),
 						has_appreciation: exchange.has_appreciation,
-						appreciation_status_hidden: exchange.has_appreciation ? '' : 'hidden',
+						appreciation_given: exchange.appreciation_given,
+						appreciation_received: exchange.appreciation_received,
 						has_appreciation_tags: hasAppreciationTags,
 						appreciation_tags: appreciationTags
 					});
@@ -2140,8 +2141,15 @@
 				if (index >= uniqueTags.length) {
 					ZAOBank.showToast('Appreciation sent!', 'success');
 					const $card = $form.closest('.zaobank-exchange-card');
-					$card.find('[data-role="appreciation-status"]').removeAttr('hidden');
 					$card.find('.zaobank-exchange-actions, .zaobank-appreciation-form').remove();
+					var viewUrl = (zaobank.appreciationsUrl || '') + '?tab=given';
+					$card.find('.zaobank-card-body').append(
+						'<div class="zaobank-exchange-status">' +
+						'<a href="' + ZAOBank.escapeHtml(viewUrl) + '" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm">' +
+						'<svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">' +
+						'<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>' +
+						'</svg> View Appreciation</a></div>'
+					);
 					$form.data('processing', false);
 					return;
 				}
@@ -2410,40 +2418,65 @@
 		renderTemplate: function(template, data) {
 			let html = template;
 
-			// Handle conditionals {{#if key}}...{{/if}}
-			html = html.replace(/\{\{#if\s+(\w+(?:\.\w+)*)\}\}([\s\S]*?)\{\{\/if\}\}/g, function(match, key, content) {
-				const value = ZAOBank.getNestedValue(data, key);
-				if (value && (!Array.isArray(value) || value.length > 0)) {
-					return content;
-				}
-				return '';
-			});
+			// Regex fragment: match content that does NOT contain nested block openers
+			// This ensures we only process innermost blocks each pass
+			var noNest = '(?:(?!\\{\\{#(?:if|unless|each)\\s)[\\s\\S])*?';
 
-			// Handle unless {{#unless key}}...{{/unless}}
-			html = html.replace(/\{\{#unless\s+(\w+(?:\.\w+)*)\}\}([\s\S]*?)\{\{\/unless\}\}/g, function(match, key, content) {
-				const value = ZAOBank.getNestedValue(data, key);
-				if (!value) {
-					return content;
-				}
-				return '';
-			});
+			var reEach = new RegExp('\\{\\{#each\\s+(\\w+(?:\\.\\w+)*)\\}\\}(' + noNest + ')\\{\\{\\/each\\}\\}', 'g');
+			var reIf = new RegExp('\\{\\{#if\\s+(\\w+(?:\\.\\w+)*)\\}\\}(' + noNest + ')\\{\\{\\/if\\}\\}', 'g');
+			var reUnless = new RegExp('\\{\\{#unless\\s+(\\w+(?:\\.\\w+)*)\\}\\}(' + noNest + ')\\{\\{\\/unless\\}\\}', 'g');
 
-			// Handle each {{#each key}}...{{/each}}
-			html = html.replace(/\{\{#each\s+(\w+(?:\.\w+)*)\}\}([\s\S]*?)\{\{\/each\}\}/g, function(match, key, content) {
-				const arr = ZAOBank.getNestedValue(data, key);
-				if (!Array.isArray(arr)) return '';
-				return arr.map(function(item) {
-					var result = content;
-					if (typeof item === 'object' && item !== null) {
-						// Replace {{this.property}} with item properties
-						result = result.replace(/\{\{this\.(\w+)\}\}/g, function(m, prop) {
-							return item[prop] !== undefined ? ZAOBank.escapeHtml(String(item[prop])) : '';
-						});
+			// Process block helpers iteratively (innermost first) to handle nesting
+			var changed = true;
+			var maxPasses = 10;
+			while (changed && maxPasses-- > 0) {
+				changed = false;
+				var prev = html;
+
+				// Handle {{#each key}}...{{/each}}
+				reEach.lastIndex = 0;
+				html = html.replace(reEach, function(match, key, content) {
+					changed = true;
+					const arr = ZAOBank.getNestedValue(data, key);
+					if (!Array.isArray(arr)) return '';
+					return arr.map(function(item) {
+						var result = content;
+						if (typeof item === 'object' && item !== null) {
+							result = result.replace(/\{\{this\.(\w+)\}\}/g, function(m, prop) {
+								return item[prop] !== undefined ? ZAOBank.escapeHtml(String(item[prop])) : '';
+							});
+						}
+						result = result.replace(/\{\{this\}\}/g, ZAOBank.escapeHtml(String(item)));
+						return result;
+					}).join('');
+				});
+
+				// Handle {{#if key}}...{{else}}...{{/if}} and {{#if key}}...{{/if}}
+				reIf.lastIndex = 0;
+				html = html.replace(reIf, function(match, key, content) {
+					changed = true;
+					const value = ZAOBank.getNestedValue(data, key);
+					const parts = content.split('{{else}}');
+					if (value && (!Array.isArray(value) || value.length > 0)) {
+						return parts[0];
 					}
-					result = result.replace(/\{\{this\}\}/g, ZAOBank.escapeHtml(String(item)));
-					return result;
-				}).join('');
-			});
+					return parts.length > 1 ? parts[1] : '';
+				});
+
+				// Handle {{#unless key}}...{{else}}...{{/unless}} and {{#unless key}}...{{/unless}}
+				reUnless.lastIndex = 0;
+				html = html.replace(reUnless, function(match, key, content) {
+					changed = true;
+					const value = ZAOBank.getNestedValue(data, key);
+					const parts = content.split('{{else}}');
+					if (!value || (Array.isArray(value) && value.length === 0)) {
+						return parts[0];
+					}
+					return parts.length > 1 ? parts[1] : '';
+				});
+
+				if (html === prev) changed = false;
+			}
 
 			// Handle simple replacements {{key}}
 			html = html.replace(/\{\{(\w+(?:\.\w+)*)\}\}/g, function(match, key) {

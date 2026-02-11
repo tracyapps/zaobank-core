@@ -221,7 +221,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			$where_values
 		));
 
-		// Add appreciation flag for current user
+		// Add appreciation data per exchange (given by me + received by me)
 		if (!empty($exchanges)) {
 			$exchange_ids = array_map(function($exchange) {
 				return (int) $exchange['id'];
@@ -230,14 +230,34 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			$app_table = ZAOBank_Database::get_appreciations_table();
 			$placeholders = implode(',', array_fill(0, count($exchange_ids), '%d'));
 
-			$appreciated_ids = $wpdb->get_col($wpdb->prepare(
-				"SELECT exchange_id FROM $app_table WHERE from_user_id = %d AND exchange_id IN ($placeholders)",
+			// Appreciations I gave (for spent exchanges)
+			$given_rows = $wpdb->get_results($wpdb->prepare(
+				"SELECT exchange_id, id FROM $app_table WHERE from_user_id = %d AND exchange_id IN ($placeholders)",
 				array_merge(array($user_id), $exchange_ids)
 			));
+			$given_lookup = array();
+			foreach ($given_rows as $row) {
+				$given_lookup[(int) $row->exchange_id] = (int) $row->id;
+			}
 
-			$lookup = array_fill_keys(array_map('intval', $appreciated_ids), true);
+			// Appreciations I received (for earned exchanges)
+			$received_rows = $wpdb->get_results($wpdb->prepare(
+				"SELECT exchange_id, id FROM $app_table WHERE to_user_id = %d AND exchange_id IN ($placeholders)",
+				array_merge(array($user_id), $exchange_ids)
+			));
+			$received_lookup = array();
+			foreach ($received_rows as $row) {
+				$received_lookup[(int) $row->exchange_id] = (int) $row->id;
+			}
+
 			foreach ($exchanges as $index => $exchange) {
-				$exchanges[$index]['has_appreciation'] = isset($lookup[(int) $exchange['id']]);
+				$eid = (int) $exchange['id'];
+				$exchanges[$index]['appreciation_given'] = isset($given_lookup[$eid]);
+				$exchanges[$index]['appreciation_given_id'] = isset($given_lookup[$eid]) ? $given_lookup[$eid] : 0;
+				$exchanges[$index]['appreciation_received'] = isset($received_lookup[$eid]);
+				$exchanges[$index]['appreciation_received_id'] = isset($received_lookup[$eid]) ? $received_lookup[$eid] : 0;
+				// Keep has_appreciation for backwards compat (true if either direction exists)
+				$exchanges[$index]['has_appreciation'] = isset($given_lookup[$eid]) || isset($received_lookup[$eid]);
 			}
 		}
 

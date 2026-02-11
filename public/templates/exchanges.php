@@ -120,11 +120,28 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 			<span class="zaobank-exchange-date">{{date}}</span>
 		</div>
 
-		<div class="zaobank-exchange-status" data-role="appreciation-status" {{appreciation_status_hidden}}>
-			<span class="zaobank-badge zaobank-badge-success"><?php _e('Appreciation sent', 'zaobank'); ?></span>
+		{{#if is_earned}}
+		{{#if appreciation_received}}
+		<div class="zaobank-exchange-status">
+			<a href="<?php echo esc_url($urls['appreciations']); ?>?tab=received" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm">
+				<svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+				</svg>
+				<?php _e('View Appreciation', 'zaobank'); ?>
+			</a>
 		</div>
-
-		{{#unless has_appreciation}}
+		{{/if}}
+		{{else}}
+		{{#if appreciation_given}}
+		<div class="zaobank-exchange-status">
+			<a href="<?php echo esc_url($urls['appreciations']); ?>?tab=given" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm">
+				<svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+				</svg>
+				<?php _e('View Appreciation', 'zaobank'); ?>
+			</a>
+		</div>
+		{{else}}
 		<div class="zaobank-exchange-actions">
 			<button type="button" class="zaobank-btn zaobank-btn-outline zaobank-btn-sm zaobank-give-appreciation" data-exchange-id="{{id}}" data-user-id="{{other_user_id}}">
 				<svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -164,7 +181,8 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 				</button>
 			</div>
 		</div>
-		{{/unless}}
+		{{/if}}
+		{{/if}}
 	</div>
 </div>
 </script>
