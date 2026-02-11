@@ -40,7 +40,7 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 	<p class="zaobank-name-pronouns">({{pronouns}})</p>
 	{{/if}}
 	{{#if display_name}}
-	<p class="zaobank-profile-display-name"><?php _e('Display name', 'zaobank'); ?>: {{display_name}}</p>
+	<p class="zaobank-profile-display-name"><?php _e('Name', 'zaobank'); ?>: {{display_name}}</p>
 	{{/if}}
 	<p class="zaobank-profile-since"><?php _e('Member since', 'zaobank'); ?> {{member_since}}</p>
 
