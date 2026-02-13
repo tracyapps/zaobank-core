@@ -2,6 +2,7 @@
 /**
  * Plugin Name: ZAO Bank Core
  * Plugin URI: https://zaobank.org
+ * GitHub Plugin URI: https://github.com/tracyapps/zaobank-core
  * Description: A WordPress-based time banking system built for church communities with porous regional boundaries and strong care ethics.
  * Version: 1.1.0
  * Author: ZAO Bank
