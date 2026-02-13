@@ -33,10 +33,17 @@
 				flagsTotalPages: 1,
 				usersFilters: { q: '', role: '' },
 				flagsFilters: { status: 'open', type: '' }
+			},
+			reporting: {
+				itemType: '',
+				itemId: 0,
+				flaggedUserId: 0,
+				triggerSelector: ''
 			}
 		},
 
 		init: function() {
+			this.ensureFlagDrawer();
 			this.bindEvents();
 			this.initComponents();
 			this.initBottomNav();
@@ -51,6 +58,10 @@
 
 			// Flag content
 			$(document).on('click', '.zaobank-flag-content', this.handleFlagContent.bind(this));
+			$(document).on('click', '[data-action="flag-drawer-close"], [data-action="flag-drawer-cancel"]', this.handleCloseFlagDrawer.bind(this));
+			$(document).on('click', '.zaobank-report-drawer-overlay', this.handleCloseFlagDrawer.bind(this));
+			$(document).on('submit', '#zaobank-flag-report-form', this.handleFlagReportSubmit.bind(this));
+			$(document).on('keydown', this.handleGlobalKeydown.bind(this));
 
 			// Filters
 			$(document).on('change', '[data-filter="region"]', this.handleRegionFilter.bind(this));
@@ -101,6 +112,7 @@
 			$(document).on('change', '[data-mod-filter="flag-type"]', this.handleModFlagTypeChange.bind(this));
 			$(document).on('change', '.zaobank-mod-role-select', this.handleModRoleChange.bind(this));
 			$(document).on('click', '[data-action="mod-flag-review"]', this.handleModFlagReview.bind(this));
+			$(document).on('click', '[data-action="mod-flag-delete"]', this.handleModFlagDelete.bind(this));
 			$(document).on('click', '[data-action="mod-flag-resolve"]', this.handleModFlagResolveOpen.bind(this));
 			$(document).on('click', '[data-action="mod-flag-confirm-resolve"]', this.handleModFlagResolveConfirm.bind(this));
 			$(document).on('click', '[data-action="mod-flag-cancel-resolve"]', this.handleModFlagResolveCancel.bind(this));
@@ -2209,24 +2221,241 @@
 		handleFlagContent: function(e) {
 			e.preventDefault();
 			const $button = $(e.currentTarget);
-			const itemType = $button.data('item-type');
-			const itemId = $button.data('item-id');
+			const itemType = String($button.data('item-type') || '').toLowerCase();
+			const itemId = parseInt($button.data('item-id'), 10) || 0;
 
-			const reasons = ['spam', 'inappropriate', 'harassment', 'other'];
-			const reason = prompt('Reason for flagging:\n\n' + reasons.join(', '));
+			if (!itemType || !itemId) {
+				this.showToast('Unable to open report form for this item.', 'error');
+				return;
+			}
 
-			if (!reason) return;
+			this.openFlagDrawer({
+				itemType: itemType,
+				itemId: itemId,
+				flaggedUserId: itemType === 'user' ? itemId : 0,
+				triggerSelector: this.getFlagTriggerSelector($button)
+			});
+		},
 
-			const note = prompt('Additional context (optional):') || '';
+		handleFlagReportSubmit: function(e) {
+			e.preventDefault();
+			const $form = $(e.currentTarget);
+			const $submit = $form.find('[type="submit"]');
+			const $reason = $form.find('[name="reason_slug"]');
+			const $note = $form.find('[name="context_note"]');
 
-			this.apiCall('flags', 'POST', {
+			const itemType = String($form.find('[name="flagged_item_type"]').val() || '').toLowerCase();
+			const itemId = parseInt($form.find('[name="flagged_item_id"]').val(), 10) || 0;
+			const flaggedUserId = parseInt($form.find('[name="flagged_user_id"]').val(), 10) || 0;
+			const reasonSlug = String($reason.val() || '').trim();
+			const contextNote = String($note.val() || '').trim();
+
+			if (!reasonSlug) {
+				this.showToast('Please select a reason.', 'error');
+				$reason.trigger('focus');
+				return;
+			}
+
+			$submit.prop('disabled', true).text('Sending report...');
+
+			const payload = {
 				flagged_item_type: itemType,
 				flagged_item_id: itemId,
-				reason_slug: reason.toLowerCase().trim(),
-				context_note: note
-			}, function(response) {
-				ZAOBank.showToast('Report submitted. Thank you.', 'success');
+				reason_slug: reasonSlug,
+				context_note: contextNote
+			};
+
+			if (flaggedUserId > 0) {
+				payload.flagged_user_id = flaggedUserId;
+			}
+
+			this.apiCall('flags', 'POST', payload, function() {
+				ZAOBank.closeFlagDrawer();
+				ZAOBank.markFlagTriggerSubmitted();
+				ZAOBank.showToast('Report sent. A moderator will review it shortly.', 'success');
+				ZAOBank.forceRefresh('report_submitted');
+			}, function() {
+				$submit.prop('disabled', false).text('Send Report');
 			});
+		},
+
+		handleCloseFlagDrawer: function(e) {
+			e.preventDefault();
+			this.closeFlagDrawer();
+		},
+
+		handleGlobalKeydown: function(e) {
+			if (e.key === 'Escape' && $('.zaobank-report-drawer').hasClass('open')) {
+				e.preventDefault();
+				this.closeFlagDrawer();
+			}
+		},
+
+		ensureFlagDrawer: function() {
+			if ($('#zaobank-report-drawer').length) {
+				return;
+			}
+
+			const reasons = this.getFlagReasons();
+			const reasonOptions = reasons.map(function(reason) {
+				return '<option value="' + ZAOBank.escapeHtml(reason.slug) + '">' +
+					ZAOBank.escapeHtml(reason.label) +
+					'</option>';
+			}).join('');
+
+			const autoHideMessage = zaobank.autoHideFlagged
+				? 'If it meets threshold rules, the content may be temporarily hidden while review is in progress.'
+				: 'Content will remain visible while moderators investigate.';
+
+			const html = [
+				'<div class="zaobank-report-drawer-overlay" hidden></div>',
+				'<aside id="zaobank-report-drawer" class="zaobank-report-drawer" hidden role="dialog" aria-modal="true" aria-labelledby="zaobank-report-title">',
+				'  <div class="zaobank-report-drawer-header">',
+				'    <h2 id="zaobank-report-title">Report Content</h2>',
+				'    <button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-btn-sm" data-action="flag-drawer-close" aria-label="Close report form">',
+				'      <svg class="zaobank-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">',
+				'        <line x1="18" y1="6" x2="6" y2="18"></line>',
+				'        <line x1="6" y1="6" x2="18" y2="18"></line>',
+				'      </svg>',
+				'    </button>',
+				'  </div>',
+				'  <div class="zaobank-report-drawer-body">',
+				'    <div class="zaobank-report-drawer-instructions">',
+				'      <p>Your report goes to a human moderation team. We review each report and decide whether to remove or restore content.</p>',
+				'      <p>' + this.escapeHtml(autoHideMessage) + '</p>',
+				'    </div>',
+				'    <form id="zaobank-flag-report-form" class="zaobank-form">',
+				'      <input type="hidden" name="flagged_item_type" value="">',
+				'      <input type="hidden" name="flagged_item_id" value="0">',
+				'      <input type="hidden" name="flagged_user_id" value="0">',
+				'      <div class="zaobank-form-group">',
+				'        <label class="zaobank-label zaobank-required" for="zaobank-flag-reason">Select a reason</label>',
+				'        <select class="zaobank-select" id="zaobank-flag-reason" name="reason_slug" required>',
+				'          <option value="">Choose a reason</option>',
+				reasonOptions,
+				'        </select>',
+				'      </div>',
+				'      <div class="zaobank-form-group">',
+				'        <label class="zaobank-label" for="zaobank-flag-context">Additional details (optional)</label>',
+				'        <textarea class="zaobank-textarea" id="zaobank-flag-context" name="context_note" rows="4" placeholder="Add context that will help moderators review this report."></textarea>',
+				'      </div>',
+				'      <div class="zaobank-form-actions">',
+				'        <button type="button" class="zaobank-btn zaobank-btn-outline" data-action="flag-drawer-cancel">Cancel</button>',
+				'        <button type="submit" class="zaobank-btn zaobank-btn-primary">Send Report</button>',
+				'      </div>',
+				'    </form>',
+				'  </div>',
+				'</aside>'
+			].join('');
+
+			$('body').append(html);
+		},
+
+		openFlagDrawer: function(config) {
+			this.ensureFlagDrawer();
+
+			this.state.reporting.itemType = config.itemType;
+			this.state.reporting.itemId = config.itemId;
+			this.state.reporting.flaggedUserId = config.flaggedUserId || 0;
+			this.state.reporting.triggerSelector = config.triggerSelector || '';
+
+			const $drawer = $('#zaobank-report-drawer');
+			const $overlay = $('.zaobank-report-drawer-overlay');
+			const $form = $('#zaobank-flag-report-form');
+
+			$form.find('[name="flagged_item_type"]').val(config.itemType);
+			$form.find('[name="flagged_item_id"]').val(config.itemId);
+			$form.find('[name="flagged_user_id"]').val(config.flaggedUserId || 0);
+			$form.find('[name="reason_slug"]').val('');
+			$form.find('[name="context_note"]').val('');
+			$form.find('[type="submit"]').prop('disabled', false).text('Send Report');
+
+			$overlay.removeAttr('hidden').addClass('open');
+			$drawer.removeAttr('hidden').addClass('open');
+			$('body').addClass('zaobank-report-drawer-open');
+
+			setTimeout(function() {
+				$form.find('[name="reason_slug"]').trigger('focus');
+			}, 50);
+		},
+
+		closeFlagDrawer: function() {
+			const $drawer = $('#zaobank-report-drawer');
+			const $overlay = $('.zaobank-report-drawer-overlay');
+
+			$overlay.removeClass('open').attr('hidden', '');
+			$drawer.removeClass('open').attr('hidden', '');
+			$('body').removeClass('zaobank-report-drawer-open');
+		},
+
+		getFlagReasons: function() {
+			const rawReasons = Array.isArray(zaobank.flagReasons) ? zaobank.flagReasons : [];
+			const parsed = rawReasons.map(function(reason) {
+				if (reason && typeof reason === 'object') {
+					const slug = String(reason.slug || '').trim();
+					const label = String(reason.label || '').trim();
+					if (slug && label) {
+						return { slug: slug, label: label };
+					}
+				}
+
+				const raw = String(reason || '').trim();
+				if (!raw) {
+					return null;
+				}
+
+				const slug = raw
+					.toLowerCase()
+					.replace(/[^a-z0-9]+/g, '-')
+					.replace(/^-+|-+$/g, '');
+
+				return {
+					slug: slug,
+					label: this.formatTagLabel(raw)
+				};
+			}.bind(this)).filter(Boolean);
+
+			if (parsed.length) {
+				return parsed;
+			}
+
+			return [
+				{ slug: 'inappropriate-content', label: 'Inappropriate Content' },
+				{ slug: 'harassment', label: 'Harassment' },
+				{ slug: 'spam', label: 'Spam' },
+				{ slug: 'safety-concern', label: 'Safety Concern' },
+				{ slug: 'other', label: 'Other' }
+			];
+		},
+
+		getFlagTriggerSelector: function($button) {
+			const itemType = String($button.data('item-type') || '').toLowerCase();
+			const itemId = parseInt($button.data('item-id'), 10) || 0;
+			return '.zaobank-flag-content[data-item-type="' + itemType + '"][data-item-id="' + itemId + '"]';
+		},
+
+		markFlagTriggerSubmitted: function() {
+			const selector = this.state.reporting.triggerSelector;
+			if (!selector) {
+				return;
+			}
+
+			$(selector).each(function() {
+				const $button = $(this);
+				$button.prop('disabled', true).addClass('is-reported').attr('aria-disabled', 'true');
+				if ($button.is('button')) {
+					$button.text('Reported');
+				}
+			});
+		},
+
+		forceRefresh: function(reason) {
+			const url = new URL(window.location.href);
+			url.searchParams.set('zaobank_refresh', Date.now().toString());
+			if (reason) {
+				url.searchParams.set('zaobank_reason', reason);
+			}
+			window.location.replace(url.toString());
 		},
 
 		// =========================================================================
@@ -2774,8 +3003,15 @@
 			var statusLabels = {
 				'open': 'Open',
 				'under_review': 'Under Review',
-				'resolved': 'Resolved'
+				'resolved': 'Resolved',
+				'removed': 'Removed',
+				'restored': 'Restored'
 			};
+
+			var canVerify = flag.status === 'open';
+			var canResolve = flag.status === 'open' || flag.status === 'under_review';
+			var canDelete = flag.status !== 'removed';
+			var canRestore = flag.status !== 'restored';
 
 			return this.renderTemplate(template, {
 				id: flag.id,
@@ -2791,8 +3027,11 @@
 				status_label: statusLabels[flag.status] || flag.status,
 				status_class: flag.status,
 				created_at: this.formatDate(flag.created_at),
-				can_review: flag.status === 'open',
-				can_resolve: flag.status === 'open' || flag.status === 'under_review'
+				resolution_note: flag.resolution_note ? this.escapeHtml(flag.resolution_note) : '',
+				can_review: canVerify,
+				can_delete: canDelete,
+				can_restore: canRestore,
+				can_resolve: canResolve
 			});
 		},
 
@@ -2872,10 +3111,33 @@
 			var flagId = $(e.currentTarget).data('flag-id');
 			var self = this;
 
+			if (!confirm('Mark this report as "Under Review"? This records that a moderator has started a manual check.')) return;
+
 			this.apiCall('moderation/flags/' + flagId, 'PUT', {
-				status: 'under_review'
+				action: 'under_review'
 			}, function() {
-				ZAOBank.showToast('Flag marked under review.', 'success');
+				ZAOBank.showToast('Confirmed: report is now under review.', 'success');
+				self.loadModFlags();
+			});
+		},
+
+		handleModFlagDelete: function(e) {
+			var $button = $(e.currentTarget);
+			var $card = $button.closest('.zaobank-mod-flag-card');
+			var flagId = $button.data('flag-id');
+			var itemType = String($card.data('item-type') || 'content');
+			var note = 'Removed by moderator after verification.';
+			var self = this;
+
+			var confirmText = 'Delete this flagged ' + itemType + ' from front-end visibility?\n\n' +
+				'This action is logged and can be reversed with Restore if the report was incorrect.';
+			if (!confirm(confirmText)) return;
+
+			this.apiCall('moderation/flags/' + flagId, 'PUT', {
+				action: 'remove',
+				resolution_note: note
+			}, function() {
+				ZAOBank.showToast('Confirmed: content was removed and logged.', 'success');
 				self.loadModFlags();
 			});
 		},
@@ -2889,14 +3151,16 @@
 		handleModFlagResolveConfirm: function(e) {
 			var $card = $(e.currentTarget).closest('.zaobank-mod-flag-card');
 			var flagId = $card.data('flag-id');
-			var note = $card.find('.zaobank-textarea').val();
+			var note = String($card.find('.zaobank-textarea').val() || '').trim();
 			var self = this;
 
+			if (!confirm('Close this report as reviewed without deleting content?')) return;
+
 			this.apiCall('moderation/flags/' + flagId, 'PUT', {
-				status: 'resolved',
+				action: 'resolve',
 				resolution_note: note
 			}, function() {
-				ZAOBank.showToast('Flag resolved.', 'success');
+				ZAOBank.showToast('Confirmed: report closed.', 'success');
 				self.loadModFlags();
 			});
 		},
@@ -2911,14 +3175,13 @@
 			var flagId = $(e.currentTarget).data('flag-id');
 			var self = this;
 
-			if (!confirm('Restore this content and resolve the flag?')) return;
+			if (!confirm('Restore this content?\n\nUse this when a report was incorrect. The restore action is logged.')) return;
 
 			this.apiCall('moderation/flags/' + flagId, 'PUT', {
-				status: 'resolved',
-				resolution_note: 'Content restored.',
-				restore: true
+				action: 'restore',
+				resolution_note: 'Restored after moderator verification.'
 			}, function() {
-				ZAOBank.showToast('Content restored and flag resolved.', 'success');
+				ZAOBank.showToast('Confirmed: content was restored.', 'success');
 				self.loadModFlags();
 			});
 		},

@@ -51,8 +51,10 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 			'callback'            => array($this, 'update_flag'),
 			'permission_callback' => array($this, 'check_moderation_access'),
 			'args'                => array(
+				'action'          => array('type' => 'string'),
 				'status'          => array('type' => 'string'),
 				'resolution_note' => array('type' => 'string'),
+				'remove'          => array('type' => 'boolean', 'default' => false),
 				'restore'         => array('type' => 'boolean', 'default' => false),
 			),
 		));
@@ -243,11 +245,19 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 		global $wpdb;
 
 		$pagination = $this->get_pagination_params($request);
-		$status     = sanitize_key($request->get_param('status'));
+		$status     = sanitize_key($request->get_param('status') ?: 'open');
 		$type       = sanitize_key($request->get_param('type'));
 		$table      = ZAOBank_Database::get_flags_table();
+		$allowed_statuses = array('open', 'under_review', 'resolved', 'removed', 'restored');
 
-		$where = $wpdb->prepare('status = %s', $status);
+		if ($status === 'all') {
+			$where = '1=1';
+		} else {
+			if (!in_array($status, $allowed_statuses, true)) {
+				$status = 'open';
+			}
+			$where = $wpdb->prepare('status = %s', $status);
+		}
 
 		if (!empty($type)) {
 			$where .= $wpdb->prepare(' AND flagged_item_type = %s', $type);
@@ -281,26 +291,83 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 	 */
 	public function update_flag($request) {
 		$flag_id         = (int) $request['id'];
-		$status          = $request->get_param('status');
-		$resolution_note = $request->get_param('resolution_note');
+		$action          = sanitize_key($request->get_param('action'));
+		$status          = sanitize_key((string) $request->get_param('status'));
+		$resolution_note = sanitize_textarea_field((string) $request->get_param('resolution_note'));
+		$remove          = (bool) $request->get_param('remove');
 		$restore         = (bool) $request->get_param('restore');
 
-		if ($status) {
-			$result = ZAOBank_Flags::update_flag_status($flag_id, sanitize_key($status), $resolution_note);
-			if (is_wp_error($result)) {
-				return $this->error_response($result->get_error_code(), $result->get_error_message());
+		// Backward compatibility for old clients.
+		if (empty($action)) {
+			if ($restore) {
+				$action = 'restore';
+			} elseif ($remove) {
+				$action = 'remove';
+			} elseif (!empty($status)) {
+				$action = $status;
 			}
 		}
 
-		if ($restore) {
-			$result = ZAOBank_Flags::restore_content($flag_id);
-			if (is_wp_error($result)) {
-				return $this->error_response($result->get_error_code(), $result->get_error_message());
-			}
+		switch ($action) {
+			case 'under_review':
+				$result = ZAOBank_Flags::update_flag_status($flag_id, 'under_review', $resolution_note);
+				if (is_wp_error($result)) {
+					return $this->error_response($result->get_error_code(), $result->get_error_message());
+				}
+				$message = __('Flag marked under review.', 'zaobank');
+				break;
+
+			case 'remove':
+			case 'removed':
+				$remove_result = ZAOBank_Flags::remove_content($flag_id);
+				if (is_wp_error($remove_result)) {
+					return $this->error_response($remove_result->get_error_code(), $remove_result->get_error_message());
+				}
+
+				$note = $resolution_note ? $resolution_note : __('Removed by moderator after review.', 'zaobank');
+				$status_result = ZAOBank_Flags::update_flag_status($flag_id, 'removed', $note);
+				if (is_wp_error($status_result)) {
+					return $this->error_response($status_result->get_error_code(), $status_result->get_error_message());
+				}
+				$message = __('Content removed and report logged.', 'zaobank');
+				break;
+
+			case 'restore':
+			case 'restored':
+				$restore_result = ZAOBank_Flags::restore_content($flag_id);
+				if (is_wp_error($restore_result)) {
+					return $this->error_response($restore_result->get_error_code(), $restore_result->get_error_message());
+				}
+
+				$note = $resolution_note ? $resolution_note : __('Restored after moderator verification.', 'zaobank');
+				$status_result = ZAOBank_Flags::update_flag_status($flag_id, 'restored', $note);
+				if (is_wp_error($status_result)) {
+					return $this->error_response($status_result->get_error_code(), $status_result->get_error_message());
+				}
+				$message = __('Content restored and report logged.', 'zaobank');
+				break;
+
+			case 'resolve':
+			case 'resolved':
+				$note = $resolution_note ? $resolution_note : __('Closed after moderator review.', 'zaobank');
+				$result = ZAOBank_Flags::update_flag_status($flag_id, 'resolved', $note);
+				if (is_wp_error($result)) {
+					return $this->error_response($result->get_error_code(), $result->get_error_message());
+				}
+				$message = __('Flag resolved.', 'zaobank');
+				break;
+
+			default:
+				return $this->error_response(
+					'invalid_flag_action',
+					__('Invalid moderation action.', 'zaobank'),
+					400
+				);
 		}
 
 		return $this->success_response(array(
-			'message' => __('Flag updated successfully.', 'zaobank'),
+			'message' => $message,
+			'action'  => $action,
 		));
 	}
 
@@ -341,7 +408,7 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 			'auto_hide_flagged'          => (bool) get_option('zaobank_auto_hide_flagged', true),
 			'flag_threshold'             => (int) get_option('zaobank_flag_threshold', 1),
 			'auto_downgrade_threshold'   => (int) get_option('zaobank_flag_auto_downgrade_threshold', 3),
-			'flag_reasons'               => get_option('zaobank_flag_reasons', array()),
+			'flag_reasons'               => ZAOBank_Flags::get_reason_options(),
 		));
 	}
 
@@ -417,11 +484,15 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 	 * Enrich a flag with user and item details.
 	 */
 	private function enrich_flag($flag) {
+		$flagged_user_id = !empty($flag->flagged_user_id)
+			? (int) $flag->flagged_user_id
+			: (($flag->flagged_item_type === 'user') ? (int) $flag->flagged_item_id : null);
+
 		$data = array(
 			'id'               => (int) $flag->id,
 			'flagged_item_type' => $flag->flagged_item_type,
 			'flagged_item_id'  => (int) $flag->flagged_item_id,
-			'flagged_user_id'  => $flag->flagged_user_id ? (int) $flag->flagged_user_id : null,
+			'flagged_user_id'  => $flagged_user_id,
 			'reporter_user_id' => (int) $flag->reporter_user_id,
 			'reason_slug'      => $flag->reason_slug,
 			'reason_label'     => $this->get_reason_label($flag->reason_slug),
@@ -436,11 +507,12 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 		// Reporter info
 		$data['reporter_name']   = get_the_author_meta('display_name', $flag->reporter_user_id);
 		$data['reporter_avatar'] = ZAOBank_Helpers::get_user_avatar_url($flag->reporter_user_id, 32);
+		$data['reviewer_name']   = $flag->reviewer_user_id ? get_the_author_meta('display_name', $flag->reviewer_user_id) : '';
 
 		// Flagged user info
-		if ($flag->flagged_user_id) {
-			$data['flagged_user_name']   = get_the_author_meta('display_name', $flag->flagged_user_id);
-			$data['flagged_user_avatar'] = ZAOBank_Helpers::get_user_avatar_url($flag->flagged_user_id, 32);
+		if ($flagged_user_id) {
+			$data['flagged_user_name']   = get_the_author_meta('display_name', $flagged_user_id);
+			$data['flagged_user_avatar'] = ZAOBank_Helpers::get_user_avatar_url($flagged_user_id, 32);
 		}
 
 		// Item preview
@@ -487,15 +559,7 @@ class ZAOBank_REST_Moderation extends ZAOBank_REST_Controller {
 	 * Get human-readable reason label.
 	 */
 	private function get_reason_label($slug) {
-		$labels = array(
-			'inappropriate-content' => __('Inappropriate Content', 'zaobank'),
-			'harassment'            => __('Harassment', 'zaobank'),
-			'spam'                  => __('Spam', 'zaobank'),
-			'safety-concern'        => __('Safety Concern', 'zaobank'),
-			'other'                 => __('Other', 'zaobank'),
-		);
-
-		return isset($labels[$slug]) ? $labels[$slug] : ucwords(str_replace('-', ' ', $slug));
+		return ZAOBank_Flags::get_reason_label($slug);
 	}
 
 	/**

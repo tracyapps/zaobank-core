@@ -2139,6 +2139,157 @@ a.zaobank-job-poster {
 }
 
 /* ==========================================================================
+   Report Drawer
+   ========================================================================== */
+body.zaobank-report-drawer-open {
+  overflow: hidden;
+}
+
+.zaobank-report-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--zaobank-darken-50);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  z-index: 1500;
+}
+
+.zaobank-report-drawer-overlay.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.zaobank-report-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: min(540px, 96vw);
+  height: 100vh;
+  background: var(--zaobank-white);
+  color: var(--zaobank-dark);
+  box-shadow: var(--zaobank-shadow-lg);
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 1600;
+  display: flex;
+  flex-direction: column;
+}
+
+.theme-dark .zaobank-report-drawer {
+  background: var(--zaobank-gray-900);
+  color: var(--zaobank-white);
+}
+
+.zaobank-report-drawer.open {
+  transform: translateX(0);
+}
+
+.zaobank-report-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--zaobank-space-3);
+  padding: var(--zaobank-space-4);
+  border-bottom: 1px solid var(--zaobank-darken-10);
+}
+
+.theme-dark .zaobank-report-drawer-header {
+  border-bottom-color: var(--zaobank-lighten-20);
+}
+
+.zaobank-report-drawer-header h2 {
+  margin: 0;
+  font-size: var(--zaobank-font-size-lg);
+}
+
+.zaobank-report-drawer-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--zaobank-space-4);
+}
+
+.zaobank-report-drawer-instructions {
+  margin-bottom: var(--zaobank-space-4);
+  padding: var(--zaobank-space-3);
+  border-radius: var(--zaobank-radius-md);
+  background: var(--zaobank-info-light);
+  border: 1px solid var(--zaobank-info);
+}
+
+.theme-dark .zaobank-report-drawer-instructions {
+  background: var(--zaobank-darken-40);
+  border-color: var(--zaobank-lighten-30);
+}
+
+.zaobank-report-drawer-instructions p {
+  margin: 0;
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-report-drawer-instructions p + p {
+  margin-top: var(--zaobank-space-2);
+}
+
+.zaobank-flag-content.is-reported {
+  opacity: 0.65;
+}
+
+/* ==========================================================================
+   Moderation Flags
+   ========================================================================== */
+.zaobank-mod-flag-actions,
+.zaobank-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--zaobank-space-2);
+}
+
+.zaobank-mod-flag-preview {
+  margin-top: var(--zaobank-space-2);
+  padding: var(--zaobank-space-2) var(--zaobank-space-3);
+  border-left: 3px solid var(--zaobank-gray-400);
+  background: var(--zaobank-gray-100);
+  border-radius: var(--zaobank-radius-sm);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.theme-dark .zaobank-mod-flag-preview {
+  background: var(--zaobank-darken-30);
+  border-left-color: var(--zaobank-lighten-30);
+}
+
+.zaobank-mod-flag-note {
+  margin-top: var(--zaobank-space-2);
+  font-size: var(--zaobank-font-size-sm);
+}
+
+.zaobank-badge-open {
+  background: var(--zaobank-warning-light);
+  color: var(--zaobank-dark);
+}
+
+.zaobank-badge-under_review {
+  background: var(--zaobank-info-light);
+  color: var(--zaobank-dark);
+}
+
+.zaobank-badge-resolved {
+  background: var(--zaobank-success-light);
+  color: var(--zaobank-dark);
+}
+
+.zaobank-badge-removed {
+  background: var(--zaobank-danger-light);
+  color: var(--zaobank-dark);
+}
+
+.zaobank-badge-restored {
+  background: var(--zaobank-light-mint-green);
+  color: var(--zaobank-dark);
+}
+
+/* ==========================================================================
    Print Styles
    ========================================================================== */
 @media print {

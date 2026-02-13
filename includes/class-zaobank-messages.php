@@ -68,6 +68,18 @@ class ZAOBank_Messages {
 			$where .= $wpdb->prepare(' AND message_type = %s', $args['message_type']);
 		}
 
+		// Hide moderator-removed messages from both participants.
+		if (class_exists('ZAOBank_Flags')) {
+			$hidden_ids = ZAOBank_Flags::get_hidden_message_ids();
+			if (!empty($hidden_ids)) {
+				$placeholders = implode(',', array_fill(0, count($hidden_ids), '%d'));
+				$where .= $wpdb->prepare(
+					" AND id NOT IN ($placeholders)",
+					...$hidden_ids
+				);
+			}
+		}
+
 		// Exclude archived conversations
 		if (empty($args['include_archived'])) {
 			$archived_ids = self::get_archived_user_ids($user_id);

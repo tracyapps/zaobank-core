@@ -3,6 +3,38 @@
  * Flag management for safety and moderation.
  */
 class ZAOBank_Flags {
+	const HIDDEN_MESSAGES_OPTION = 'zaobank_hidden_message_ids';
+
+	/**
+	 * Get normalized flag reason options.
+	 *
+	 * @return array<int, array{slug:string,label:string}>
+	 */
+	public static function get_reason_options() {
+		return array_values(self::get_reason_map());
+	}
+
+	/**
+	 * Get all valid reason slugs.
+	 *
+	 * @return string[]
+	 */
+	public static function get_reason_slugs() {
+		return array_keys(self::get_reason_map());
+	}
+
+	/**
+	 * Get human-readable label for a reason slug.
+	 */
+	public static function get_reason_label($slug) {
+		$slug = sanitize_title((string) $slug);
+		$reasons = self::get_reason_map();
+		if (isset($reasons[ $slug ]['label'])) {
+			return $reasons[ $slug ]['label'];
+		}
+
+		return ucwords(str_replace('-', ' ', $slug));
+	}
 
 	/**
 	 * Create a flag.
@@ -33,12 +65,17 @@ class ZAOBank_Flags {
 		}
 
 		// Validate reason
-		$valid_reasons = get_option('zaobank_flag_reasons', array());
-		if (!in_array($data['reason_slug'], $valid_reasons)) {
+		$reason_slug = self::normalize_reason_slug($data['reason_slug']);
+		if (!in_array($reason_slug, self::get_reason_slugs(), true)) {
 			return new WP_Error(
 				'invalid_reason',
 				__('Invalid flag reason', 'zaobank')
 			);
+		}
+		$data['reason_slug'] = $reason_slug;
+
+		if ($data['flagged_item_type'] === 'user' && empty($data['flagged_user_id'])) {
+			$data['flagged_user_id'] = (int) $data['flagged_item_id'];
 		}
 
 		$result = $wpdb->insert(
@@ -48,7 +85,7 @@ class ZAOBank_Flags {
 				'flagged_item_id' => (int) $data['flagged_item_id'],
 				'flagged_user_id' => isset($data['flagged_user_id']) ? (int) $data['flagged_user_id'] : null,
 				'reporter_user_id' => (int) $data['reporter_user_id'],
-				'reason_slug' => sanitize_key($data['reason_slug']),
+				'reason_slug' => $reason_slug,
 				'context_note' => isset($data['context_note']) ? sanitize_textarea_field($data['context_note']) : null,
 				'status' => 'open',
 				'created_at' => wp_date('Y-m-d H:i:s')
@@ -80,7 +117,7 @@ class ZAOBank_Flags {
 			sprintf(
 				__('New %s flag: %s', 'zaobank'),
 				$data['flagged_item_type'],
-				$data['reason_slug']
+				self::get_reason_label($reason_slug)
 			),
 			isset($data['flagged_user_id']) ? (int) $data['flagged_user_id'] : 0
 		);
@@ -121,15 +158,8 @@ class ZAOBank_Flags {
 				break;
 
 			case 'message':
-				// Mark message as hidden
-				$table = ZAOBank_Database::get_messages_table();
-				$wpdb->update(
-					$table,
-					array('is_read' => 1), // Using read flag as hidden marker
-					array('id' => $data['flagged_item_id']),
-					array('%d'),
-					array('%d')
-				);
+				// Hide message from both users while under review
+				self::hide_message((int) $data['flagged_item_id']);
 				break;
 
 			case 'user':
@@ -153,15 +183,27 @@ class ZAOBank_Flags {
 
 		$args = wp_parse_args($args, $defaults);
 
-		$query = $wpdb->prepare(
-			"SELECT * FROM $table 
-            WHERE status = %s
-            ORDER BY created_at DESC
-            LIMIT %d OFFSET %d",
-			$status,
-			$args['limit'],
-			$args['offset']
-		);
+		$status = sanitize_key($status);
+
+		if ($status === 'all') {
+			$query = $wpdb->prepare(
+				"SELECT * FROM $table
+				ORDER BY created_at DESC
+				LIMIT %d OFFSET %d",
+				$args['limit'],
+				$args['offset']
+			);
+		} else {
+			$query = $wpdb->prepare(
+				"SELECT * FROM $table 
+				WHERE status = %s
+				ORDER BY created_at DESC
+				LIMIT %d OFFSET %d",
+				$status,
+				$args['limit'],
+				$args['offset']
+			);
+		}
 
 		$flags = $wpdb->get_results($query);
 
@@ -174,22 +216,32 @@ class ZAOBank_Flags {
 	public static function update_flag_status($flag_id, $status, $resolution_note = null) {
 		global $wpdb;
 		$table = ZAOBank_Database::get_flags_table();
+		$status = sanitize_key($status);
+
+		if (empty($status)) {
+			return new WP_Error(
+				'invalid_status',
+				__('Invalid flag status', 'zaobank')
+			);
+		}
 
 		$data = array(
 			'status' => $status,
 			'reviewed_at' => wp_date('Y-m-d H:i:s'),
 			'reviewer_user_id' => get_current_user_id()
 		);
+		$formats = array('%s', '%s', '%d');
 
 		if ($resolution_note) {
 			$data['resolution_note'] = sanitize_textarea_field($resolution_note);
+			$formats[] = '%s';
 		}
 
 		$result = $wpdb->update(
 			$table,
 			$data,
 			array('id' => $flag_id),
-			array('%s', '%s', '%d', '%s'),
+			$formats,
 			array('%d')
 		);
 
@@ -210,16 +262,75 @@ class ZAOBank_Flags {
 	}
 
 	/**
+	 * Remove flagged content after moderator confirmation.
+	 */
+	public static function remove_content($flag_id) {
+		global $wpdb;
+		$flag = self::get_flag_row($flag_id);
+
+		if (!$flag) {
+			return new WP_Error('invalid_flag', __('Invalid flag', 'zaobank'));
+		}
+
+		switch ($flag->flagged_item_type) {
+			case 'job':
+				update_post_meta((int) $flag->flagged_item_id, 'visibility', 'hidden');
+				break;
+
+			case 'appreciation':
+				$table = ZAOBank_Database::get_appreciations_table();
+				$wpdb->update(
+					$table,
+					array('is_public' => 0),
+					array('id' => (int) $flag->flagged_item_id),
+					array('%d'),
+					array('%d')
+				);
+				break;
+
+			case 'message':
+				self::hide_message((int) $flag->flagged_item_id);
+				break;
+
+			case 'user':
+				$user_id = self::get_effective_flagged_user_id($flag);
+				$user = $user_id ? get_userdata($user_id) : null;
+				if (!$user) {
+					return new WP_Error('invalid_user', __('Unable to find the flagged user.', 'zaobank'));
+				}
+
+				if (in_array('administrator', $user->roles, true)) {
+					return new WP_Error('cannot_remove_admin', __('Administrators cannot be removed here.', 'zaobank'));
+				}
+
+				if (in_array('leadership_team', $user->roles, true)) {
+					return new WP_Error('cannot_remove_leadership', __('Leadership users cannot be removed here.', 'zaobank'));
+				}
+
+				$current_role = !empty($user->roles) ? reset($user->roles) : 'member';
+				update_user_meta($user_id, 'zaobank_flag_prev_role_' . (int) $flag_id, sanitize_key($current_role));
+				$user->set_role('member_limited');
+				break;
+
+			default:
+				return new WP_Error('unsupported_flag_item', __('Unsupported flagged content type.', 'zaobank'));
+		}
+
+		ZAOBank_Security::log_security_event('flag_content_removed', array(
+			'flag_id' => (int) $flag_id,
+			'item_type' => $flag->flagged_item_type,
+			'item_id' => (int) $flag->flagged_item_id,
+		));
+
+		return true;
+	}
+
+	/**
 	 * Restore flagged content.
 	 */
 	public static function restore_content($flag_id) {
 		global $wpdb;
-		$flags_table = ZAOBank_Database::get_flags_table();
-
-		$flag = $wpdb->get_row($wpdb->prepare(
-			"SELECT * FROM $flags_table WHERE id = %d",
-			$flag_id
-		));
+		$flag = self::get_flag_row($flag_id);
 
 		if (!$flag) {
 			return new WP_Error('invalid_flag', __('Invalid flag', 'zaobank'));
@@ -240,9 +351,84 @@ class ZAOBank_Flags {
 					array('%d')
 				);
 				break;
+
+			case 'message':
+				self::unhide_message((int) $flag->flagged_item_id);
+				break;
+
+			case 'user':
+				$user_id = self::get_effective_flagged_user_id($flag);
+				$user = $user_id ? get_userdata($user_id) : null;
+				if (!$user) {
+					return new WP_Error('invalid_user', __('Unable to find the flagged user.', 'zaobank'));
+				}
+
+				$previous_role = sanitize_key((string) get_user_meta($user_id, 'zaobank_flag_prev_role_' . (int) $flag_id, true));
+				if (empty($previous_role) || !wp_roles()->is_role($previous_role) || $previous_role === 'member_limited') {
+					$previous_role = 'member';
+				}
+
+				$user->set_role($previous_role);
+				delete_user_meta($user_id, 'zaobank_flag_prev_role_' . (int) $flag_id);
+				break;
 		}
 
+		ZAOBank_Security::log_security_event('flag_content_restored', array(
+			'flag_id' => (int) $flag_id,
+			'item_type' => $flag->flagged_item_type,
+			'item_id' => (int) $flag->flagged_item_id,
+		));
+
 		return true;
+	}
+
+	/**
+	 * Get hidden message IDs.
+	 *
+	 * @return int[]
+	 */
+	public static function get_hidden_message_ids() {
+		$hidden_ids = get_option(self::HIDDEN_MESSAGES_OPTION, array());
+		if (!is_array($hidden_ids)) {
+			return array();
+		}
+
+		$hidden_ids = array_map('intval', $hidden_ids);
+		$hidden_ids = array_filter($hidden_ids);
+
+		return array_values(array_unique($hidden_ids));
+	}
+
+	/**
+	 * Hide message for all users.
+	 */
+	public static function hide_message($message_id) {
+		$message_id = (int) $message_id;
+		if ($message_id < 1) {
+			return;
+		}
+
+		$hidden_ids = self::get_hidden_message_ids();
+		if (!in_array($message_id, $hidden_ids, true)) {
+			$hidden_ids[] = $message_id;
+			update_option(self::HIDDEN_MESSAGES_OPTION, array_values($hidden_ids));
+		}
+	}
+
+	/**
+	 * Unhide previously hidden message.
+	 */
+	public static function unhide_message($message_id) {
+		$message_id = (int) $message_id;
+		if ($message_id < 1) {
+			return;
+		}
+
+		$hidden_ids = self::get_hidden_message_ids();
+		$hidden_ids = array_values(array_filter($hidden_ids, function($id) use ($message_id) {
+			return (int) $id !== $message_id;
+		}));
+		update_option(self::HIDDEN_MESSAGES_OPTION, $hidden_ids);
 	}
 
 	/**
@@ -320,14 +506,17 @@ class ZAOBank_Flags {
 	 * Format flag data.
 	 */
 	private static function format_flag_data($flag) {
+		$flagged_user_id = self::get_effective_flagged_user_id($flag);
+
 		return array(
 			'id' => (int) $flag->id,
 			'flagged_item_type' => $flag->flagged_item_type,
 			'flagged_item_id' => (int) $flag->flagged_item_id,
-			'flagged_user_id' => $flag->flagged_user_id ? (int) $flag->flagged_user_id : null,
+			'flagged_user_id' => $flagged_user_id ?: null,
 			'reporter_user_id' => (int) $flag->reporter_user_id,
 			'reporter_name' => get_the_author_meta('display_name', $flag->reporter_user_id),
 			'reason_slug' => $flag->reason_slug,
+			'reason_label' => self::get_reason_label($flag->reason_slug),
 			'context_note' => $flag->context_note,
 			'status' => $flag->status,
 			'created_at' => $flag->created_at,
@@ -335,5 +524,111 @@ class ZAOBank_Flags {
 			'reviewer_user_id' => $flag->reviewer_user_id ? (int) $flag->reviewer_user_id : null,
 			'resolution_note' => $flag->resolution_note
 		);
+	}
+
+	/**
+	 * Build a normalized reason map keyed by slug.
+	 *
+	 * @return array<string, array{slug:string,label:string}>
+	 */
+	private static function get_reason_map() {
+		$configured_reasons = get_option('zaobank_flag_reasons', array());
+		$configured_reasons = is_array($configured_reasons) ? $configured_reasons : array();
+
+		$map = array();
+		foreach ($configured_reasons as $reason) {
+			$reason = sanitize_text_field((string) $reason);
+			if ($reason === '') {
+				continue;
+			}
+
+			$slug = sanitize_title($reason);
+			if ($slug === '') {
+				continue;
+			}
+
+			$is_slug = (bool) preg_match('/^[a-z0-9_-]+$/i', $reason);
+			$label_source = $is_slug ? str_replace(array('_', '-'), ' ', $reason) : $reason;
+			$label = trim(ucwords($label_source));
+
+			$map[ $slug ] = array(
+				'slug' => $slug,
+				'label' => $label,
+			);
+		}
+
+		if (!empty($map)) {
+			return $map;
+		}
+
+		$defaults = array(
+			'inappropriate-content',
+			'harassment',
+			'spam',
+			'safety-concern',
+			'other',
+		);
+
+		foreach ($defaults as $slug) {
+			$map[ $slug ] = array(
+				'slug' => $slug,
+				'label' => ucwords(str_replace('-', ' ', $slug)),
+			);
+		}
+
+		return $map;
+	}
+
+	/**
+	 * Normalize reason input to configured reason slug.
+	 */
+	private static function normalize_reason_slug($reason) {
+		$reason = sanitize_text_field((string) $reason);
+		if ($reason === '') {
+			return '';
+		}
+
+		$normalized = sanitize_title($reason);
+		$reasons = self::get_reason_map();
+
+		if (isset($reasons[ $normalized ])) {
+			return $normalized;
+		}
+
+		foreach ($reasons as $slug => $details) {
+			if (strtolower($details['label']) === strtolower($reason)) {
+				return $slug;
+			}
+		}
+
+		return $normalized;
+	}
+
+	/**
+	 * Fetch a single flag row.
+	 */
+	private static function get_flag_row($flag_id) {
+		global $wpdb;
+		$flags_table = ZAOBank_Database::get_flags_table();
+
+		return $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $flags_table WHERE id = %d",
+			(int) $flag_id
+		));
+	}
+
+	/**
+	 * Get flagged user ID fallback for user-type flags.
+	 */
+	private static function get_effective_flagged_user_id($flag) {
+		if (!empty($flag->flagged_user_id)) {
+			return (int) $flag->flagged_user_id;
+		}
+
+		if (isset($flag->flagged_item_type) && $flag->flagged_item_type === 'user') {
+			return (int) $flag->flagged_item_id;
+		}
+
+		return 0;
 	}
 }
