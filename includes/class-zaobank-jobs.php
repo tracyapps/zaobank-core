@@ -316,6 +316,35 @@ class ZAOBank_Jobs {
 		);
 
 		$args = wp_parse_args($args, $defaults);
+		$include_hidden = !empty($args['include_hidden']);
+		unset($args['include_hidden']);
+
+		if (!$include_hidden) {
+			$visibility_clause = array(
+				'relation' => 'OR',
+				array(
+					'key' => 'visibility',
+					'compare' => 'NOT EXISTS'
+				),
+				array(
+					'key' => 'visibility',
+					'value' => 'public',
+					'compare' => '='
+				)
+			);
+
+			if (!isset($args['meta_query']) || !is_array($args['meta_query'])) {
+				$args['meta_query'] = array(
+					'relation' => 'AND',
+					$visibility_clause
+				);
+			} else {
+				if (!isset($args['meta_query']['relation'])) {
+					$args['meta_query']['relation'] = 'AND';
+				}
+				$args['meta_query'][] = $visibility_clause;
+			}
+		}
 
 		// Add region filter if specified
 		if (!empty($args['region'])) {
@@ -407,6 +436,7 @@ class ZAOBank_Jobs {
 			'completed_at' => $completed_at,
 			'exchange_id' => $exchange ? $exchange['id'] : null,
 			'visibility' => get_post_meta($job_id, 'visibility', true),
+			'is_flagged' => (get_post_meta($job_id, 'visibility', true) === 'hidden'),
 			'regions' => $region_data,
 			'job_types' => $job_type_data,
 			'status' => $job->post_status,

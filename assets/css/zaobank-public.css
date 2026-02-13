@@ -2231,6 +2231,10 @@ body.zaobank-report-drawer-open {
   margin-top: var(--zaobank-space-2);
 }
 
+.zaobank-flagged-content {
+  display: none !important;
+}
+
 .zaobank-flag-content.is-reported {
   opacity: 0.65;
 }

@@ -208,7 +208,7 @@ $is_address_book = ($current_view === 'address-book');
 <?php include ZAOBANK_PLUGIN_DIR . 'public/templates/components/bottom-nav.php'; ?>
 
 <script type="text/template" id="zaobank-community-card-template">
-<div class="zaobank-card zaobank-community-card" data-user-id="{{id}}">
+<div class="zaobank-card zaobank-community-card {{flagged_class}}" data-user-id="{{id}}">
 	<div class="zaobank-card-body">
 		<div class="zaobank-community-header">
 			<div class="zaobank-community-user">

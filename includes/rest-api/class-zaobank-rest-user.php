@@ -554,6 +554,12 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			return $this->success_response(array('users' => array(), 'total' => 0, 'pages' => 0));
 		}
 
+		$excluded_user_ids = array_merge(
+			array(get_current_user_id()),
+			$this->get_actively_flagged_user_ids()
+		);
+		$excluded_user_ids = array_values(array_unique(array_filter(array_map('intval', $excluded_user_ids))));
+
 		$meta_query = array('relation' => 'AND');
 
 		$availability_clause = array(
@@ -629,7 +635,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'paged' => $page,
 			'role__in' => $valid_roles,
 			'meta_query' => $meta_query,
-			'exclude' => array(get_current_user_id())
+			'exclude' => $excluded_user_ids
 		);
 
 		$orderby = ($sort === 'name') ? 'display_name' : 'registered';
@@ -671,6 +677,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			$skill_ids = $skill_query->get_results();
 
 			$all_ids = array_values(array_unique(array_merge($name_ids, $skill_ids)));
+			$all_ids = array_values(array_diff($all_ids, $excluded_user_ids));
 
 			if (empty($all_ids)) {
 				return $this->success_response(array(
@@ -893,5 +900,47 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		}
 
 		return $profile;
+	}
+
+	/**
+	 * Get user IDs with active moderation flags.
+	 *
+	 * Users with open or under-review flags are excluded from community listings
+	 * until moderation review is complete.
+	 *
+	 * @return int[]
+	 */
+	private function get_actively_flagged_user_ids() {
+		global $wpdb;
+
+		$table = ZAOBank_Database::get_flags_table();
+		$active_statuses = array('open', 'under_review');
+
+		$direct_flagged = $wpdb->get_col($wpdb->prepare(
+			"SELECT DISTINCT flagged_user_id
+			 FROM $table
+			 WHERE flagged_user_id IS NOT NULL
+			   AND status IN (%s, %s)",
+			$active_statuses[0],
+			$active_statuses[1]
+		));
+
+		$user_item_flagged = $wpdb->get_col($wpdb->prepare(
+			"SELECT DISTINCT flagged_item_id
+			 FROM $table
+			 WHERE flagged_item_type = %s
+			   AND status IN (%s, %s)",
+			'user',
+			$active_statuses[0],
+			$active_statuses[1]
+		));
+
+		$ids = array_merge(
+			is_array($direct_flagged) ? $direct_flagged : array(),
+			is_array($user_item_flagged) ? $user_item_flagged : array()
+		);
+		$ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+		return $ids;
 	}
 }

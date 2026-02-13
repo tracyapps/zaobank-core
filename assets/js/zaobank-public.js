@@ -406,6 +406,7 @@
 			const requesterId = Number(job.requester_id || 0);
 			const providerId = Number(job.provider_id || 0);
 			const canClaim = zaobank.isLoggedIn && zaobank.hasMemberAccess && !providerId && requesterId !== currentUserId;
+			const isFlagged = !!job.is_flagged || (job.visibility && String(job.visibility).toLowerCase() !== 'public');
 
 			return this.renderTemplate(template, {
 				id: job.id,
@@ -421,7 +422,9 @@
 				requester_pronouns: job.requester_pronouns ? this.escapeHtml(job.requester_pronouns) : '',
 				requester_avatar: job.requester_avatar || this.getDefaultAvatar(),
 				job_types: job.job_types || [],
-				can_claim: canClaim
+				can_claim: canClaim,
+				is_flagged: isFlagged,
+				flagged_class: isFlagged ? 'zaobank-flagged-content' : ''
 			});
 		},
 
@@ -431,9 +434,11 @@
 			const requesterId = Number(job.requester_id || 0);
 			const providerId = Number(job.provider_id || 0);
 			const canClaim = zaobank.isLoggedIn && zaobank.hasMemberAccess && !providerId && requesterId !== currentUserId;
+			const isFlagged = !!job.is_flagged || (job.visibility && String(job.visibility).toLowerCase() !== 'public');
+			const flaggedClass = isFlagged ? 'zaobank-flagged-content' : '';
 
 			return `
-				<article class="zaobank-card zaobank-job-card" data-job-id="${job.id}">
+				<article class="zaobank-card zaobank-job-card ${flaggedClass}" data-job-id="${job.id}">
 					<div class="zaobank-card-body">
 						<div class="zaobank-job-header">
 							<h3 class="zaobank-job-title">
@@ -626,6 +631,7 @@
 				const template = $('#zaobank-community-card-template').html();
 				const html = users.map(function(user) {
 					const isSaved = (ZAOBank.state.community.savedIds || []).indexOf(user.id) !== -1;
+					const isFlagged = !!user.is_flagged;
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
@@ -640,7 +646,9 @@
 						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						can_save: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						is_saved: isSaved,
-						save_label: isSaved ? 'Saved' : 'Save'
+						save_label: isSaved ? 'Saved' : 'Save',
+						is_flagged: isFlagged,
+						flagged_class: isFlagged ? 'zaobank-flagged-content' : ''
 					});
 				}).join('');
 

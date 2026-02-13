@@ -148,16 +148,32 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 
 		// Filter by status
 		$status = $request->get_param('status');
+		$visibility_meta_clause = array(
+			'relation' => 'OR',
+			array(
+				'key' => 'visibility',
+				'compare' => 'NOT EXISTS'
+			),
+			array(
+				'key' => 'visibility',
+				'value' => 'public',
+				'compare' => '='
+			)
+		);
+
 		if ($status === 'available') {
 			// Only unclaimed jobs
 			$args['meta_query'] = array(
+				'relation' => 'AND',
 				array(
 					'key' => 'provider_user_id',
 					'compare' => 'NOT EXISTS'
-				)
+				),
+				$visibility_meta_clause
 			);
 		} elseif ($status === 'claimed') {
 			$args['meta_query'] = array(
+				'relation' => 'AND',
 				array(
 					'key' => 'provider_user_id',
 					'compare' => 'EXISTS'
@@ -165,14 +181,22 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 				array(
 					'key' => 'completed_at',
 					'compare' => 'NOT EXISTS'
-				)
+				),
+				$visibility_meta_clause
 			);
 		} elseif ($status === 'completed') {
 			$args['meta_query'] = array(
+				'relation' => 'AND',
 				array(
 					'key' => 'completed_at',
 					'compare' => 'EXISTS'
-				)
+				),
+				$visibility_meta_clause
+			);
+		} else {
+			$args['meta_query'] = array(
+				'relation' => 'AND',
+				$visibility_meta_clause
 			);
 		}
 
