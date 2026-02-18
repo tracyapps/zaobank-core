@@ -49,6 +49,49 @@ if (!$other_user) {
 		</div>
 	</div>
 
+	<div class="zaobank-conversation-intent-tools">
+		<button type="button"
+		        class="zaobank-btn zaobank-btn-outline zaobank-btn-sm zaobank-open-job-intent"
+		        data-intent="request">
+			<?php _e('Create Request', 'zaobank'); ?>
+		</button>
+		<button type="button"
+		        class="zaobank-btn zaobank-btn-outline zaobank-btn-sm zaobank-open-job-intent"
+		        data-intent="offer">
+			<?php _e('Offer Help', 'zaobank'); ?>
+		</button>
+	</div>
+
+	<form class="zaobank-job-intent-form" data-component="job-intent-form" hidden>
+		<input type="hidden" name="intent" value="request">
+		<input type="hidden" name="message_id" value="">
+		<div class="zaobank-card">
+			<div class="zaobank-card-body">
+				<h3 data-role="intent-heading"><?php _e('Create Job Request', 'zaobank'); ?></h3>
+				<div class="zaobank-form-group">
+					<label class="zaobank-label" for="zaobank-intent-title"><?php _e('Title', 'zaobank'); ?></label>
+					<input type="text" id="zaobank-intent-title" name="title" class="zaobank-input" maxlength="120" required>
+				</div>
+				<div class="zaobank-form-group">
+					<label class="zaobank-label" for="zaobank-intent-hours"><?php _e('Estimated hours', 'zaobank'); ?></label>
+					<input type="number" id="zaobank-intent-hours" name="hours" min="0.25" step="0.25" class="zaobank-input" required>
+				</div>
+				<div class="zaobank-form-group">
+					<label class="zaobank-label" for="zaobank-intent-details"><?php _e('Details', 'zaobank'); ?></label>
+					<textarea id="zaobank-intent-details" name="details" rows="3" class="zaobank-textarea" required></textarea>
+				</div>
+				<div class="zaobank-job-intent-actions">
+					<button type="submit" class="zaobank-btn zaobank-btn-primary">
+						<span data-role="intent-submit-label"><?php _e('Send Request', 'zaobank'); ?></span>
+					</button>
+					<button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-cancel-job-intent">
+						<?php _e('Cancel', 'zaobank'); ?>
+					</button>
+				</div>
+			</div>
+		</div>
+	</form>
+
 	<!-- Message Composer -->
 	<form class="zaobank-message-composer" data-component="message-form">
 		<div class="zaobank-composer-input-wrapper">
@@ -71,9 +114,51 @@ if (!$other_user) {
 </div>
 
 <script type="text/template" id="zaobank-message-template">
-<div class="zaobank-message {{#if is_own}}zaobank-message-own{{else}}zaobank-message-other{{/if}}">
+<div class="zaobank-message {{#if is_own}}zaobank-message-own{{/if}}{{#unless is_own}}zaobank-message-other{{/unless}}" data-message-id="{{id}}">
 	<div class="zaobank-message-bubble">
+		{{#if is_intent}}
+		<div class="zaobank-message-intent zaobank-message-intent-{{intent_type}}">
+			<span class="zaobank-badge zaobank-badge-primary">{{intent_label}}</span>
+			<p class="zaobank-message-intent-title">{{intent_title}}</p>
+			<p class="zaobank-message-intent-hours"><?php _e('Estimated hours:', 'zaobank'); ?> {{intent_hours}}</p>
+			{{#if intent_details}}
+			<p class="zaobank-message-intent-details">{{intent_details}}</p>
+			{{/if}}
+			{{#if job_id}}
+			<a href="<?php echo esc_url($urls['jobs']); ?>?job_id={{job_id}}" class="zaobank-btn zaobank-btn-ghost zaobank-btn-sm">
+				<?php _e('View Job', 'zaobank'); ?>
+			</a>
+			{{/if}}
+			{{#if can_accept_intent}}
+			<button type="button"
+			        class="zaobank-btn zaobank-btn-primary zaobank-btn-sm zaobank-accept-job-intent"
+			        data-message-id="{{id}}"
+			        data-hours="{{intent_hours_input}}">
+				<?php _e('Accept and Create Job', 'zaobank'); ?>
+			</button>
+			{{/if}}
+		</div>
+		{{else}}
 		<p class="zaobank-message-text">{{message}}</p>
+		{{#if can_convert_intent}}
+		<div class="zaobank-message-inline-actions">
+			<button type="button"
+			        class="zaobank-message-inline-action zaobank-convert-message-intent"
+			        data-intent="request"
+			        data-message-id="{{id}}"
+			        data-message-text="{{message_attr}}">
+				<?php _e('Make Request', 'zaobank'); ?>
+			</button>
+			<button type="button"
+			        class="zaobank-message-inline-action zaobank-convert-message-intent"
+			        data-intent="offer"
+			        data-message-id="{{id}}"
+			        data-message-text="{{message_attr}}">
+				<?php _e('Offer Help', 'zaobank'); ?>
+			</button>
+		</div>
+		{{/if}}
+		{{/if}}
 		<span class="zaobank-message-time">{{time}}</span>
 	</div>
 </div>

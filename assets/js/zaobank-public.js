@@ -88,6 +88,7 @@
 			$(document).on('submit', '#zaobank-job-form', this.handleJobFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-profile-form', this.handleProfileFormSubmit.bind(this));
 			$(document).on('submit', '[data-component="message-form"]', this.handleMessageSubmit.bind(this));
+			$(document).on('submit', '[data-component="job-intent-form"]', this.handleJobIntentSubmit.bind(this));
 
 			// Appreciation
 			$(document).on('click', '.zaobank-give-appreciation', this.handleGiveAppreciation.bind(this));
@@ -104,6 +105,10 @@
 			$(document).on('click', '.zaobank-mark-read', this.handleMarkConversationRead.bind(this));
 			$(document).on('click', '.zaobank-archive-conversation', this.handleArchiveConversation.bind(this));
 			$(document).on('input', '[data-action="message-user-search"]', this.debounce(this.handleMessageUserSearch.bind(this), 250));
+			$(document).on('click', '.zaobank-open-job-intent', this.handleOpenJobIntentForm.bind(this));
+			$(document).on('click', '.zaobank-cancel-job-intent', this.handleCancelJobIntentForm.bind(this));
+			$(document).on('click', '.zaobank-convert-message-intent', this.handleConvertMessageIntent.bind(this));
+			$(document).on('click', '.zaobank-accept-job-intent', this.handleAcceptJobIntent.bind(this));
 
 			// Moderation
 			$(document).on('input', '[data-mod-filter="search"]', this.debounce(this.handleModSearchChange.bind(this), 300));
@@ -1748,11 +1753,35 @@
 				const template = $('#zaobank-message-template').html();
 				const html = sortedMessages.map(function(msg) {
 					const isOwn = Number(msg.from_user_id || 0) === Number(zaobank.userId || 0);
+					const parsedIntent = ZAOBank.parseMessageIntent(msg);
+					const canAcceptIntent = !!(parsedIntent && !isOwn && !msg.job_id);
+					const canConvertIntent = !!(!parsedIntent && !msg.job_id && isOwn);
+					const intentDetails = parsedIntent && parsedIntent.details
+						? ZAOBank.escapeHtml(parsedIntent.details).replace(/\n/g, '<br>')
+						: '';
+					const intentLabel = parsedIntent
+						? (parsedIntent.type === 'offer' ? 'Job Offer' : 'Job Request')
+						: '';
+					const intentHoursLabel = parsedIntent && parsedIntent.hours
+						? parsedIntent.hours
+						: 'Not specified';
+
 					return ZAOBank.renderTemplate(template, {
 						id: msg.id,
 						message: ZAOBank.escapeHtml(msg.message),
+						message_attr: ZAOBank.escapeHtml(msg.message).replace(/\n/g, '&#10;'),
 						time: ZAOBank.formatTime(msg.created_at),
-						is_own: isOwn
+						is_own: isOwn,
+						is_intent: !!parsedIntent,
+						intent_type: parsedIntent ? parsedIntent.type : '',
+						intent_label: intentLabel,
+						intent_title: parsedIntent ? ZAOBank.escapeHtml(parsedIntent.title) : '',
+						intent_hours: intentHoursLabel,
+						intent_hours_input: parsedIntent && parsedIntent.hours ? parsedIntent.hours : '',
+						intent_details: intentDetails,
+						can_accept_intent: canAcceptIntent,
+						can_convert_intent: canConvertIntent,
+						job_id: msg.job_id || ''
 					});
 				}).join('');
 
@@ -1774,6 +1803,255 @@
 				$container.scrollTop($container[0].scrollHeight);
 			}, function() {
 				$list.attr('data-loading', 'false');
+			});
+		},
+
+		parseMessageIntent: function(msg) {
+			const rawMessage = (msg && msg.message ? String(msg.message) : '').trim();
+			if (!rawMessage) return null;
+
+			const rawType = (msg && msg.message_type ? String(msg.message_type) : '').toLowerCase();
+			let intentType = '';
+			if (rawType === 'job_request') {
+				intentType = 'request';
+			} else if (rawType === 'job_offer') {
+				intentType = 'offer';
+			}
+
+			if (!intentType) {
+				if (/^\s*job\s+request\s*:/i.test(rawMessage)) {
+					intentType = 'request';
+				} else if (/^\s*job\s+offer\s*:/i.test(rawMessage)) {
+					intentType = 'offer';
+				} else if (/^\s*skill\s+request\s*:/i.test(rawMessage)) {
+					intentType = 'request';
+				}
+			}
+
+			if (!intentType) return null;
+
+			const titleMatch = rawMessage.match(/^\s*(?:job\s+request|job\s+offer|skill\s+request)\s*:\s*(.+)$/im);
+			let title = titleMatch && titleMatch[1] ? titleMatch[1].trim() : '';
+
+			const hoursMatch = rawMessage.match(/estimated\s+hours\s*:\s*([0-9]+(?:\.[0-9]+)?)/i);
+			const hours = hoursMatch && hoursMatch[1] ? hoursMatch[1].trim() : '';
+
+			let details = '';
+			const sections = rawMessage.split(/\n\s*\n/);
+			if (sections.length > 1) {
+				details = sections.slice(1).join('\n\n').trim();
+			}
+			if (!details) {
+				details = rawMessage
+					.replace(/^\s*(?:job\s+request|job\s+offer|skill\s+request)\s*:.*$/im, '')
+					.replace(/^\s*estimated\s+hours\s*:.*$/im, '')
+					.trim();
+			}
+
+			if (!title) {
+				title = this.deriveIntentTitle(details, intentType);
+			}
+
+			return {
+				type: intentType,
+				title: title,
+				hours: hours,
+				details: details
+			};
+		},
+
+		deriveIntentTitle: function(details, intentType) {
+			const text = String(details || '').replace(/\s+/g, ' ').trim();
+			if (text) {
+				return this.truncate(text, 80);
+			}
+			return intentType === 'offer' ? 'Help offer' : 'Community request';
+		},
+
+		buildIntentMessage: function(intentType, title, hours, details) {
+			const intentLabel = intentType === 'offer' ? 'Job offer' : 'Job request';
+			const safeTitle = String(title || '').trim();
+			const safeHours = String(hours || '').trim();
+			const safeDetails = String(details || '').trim();
+
+			return `${intentLabel}: ${safeTitle}\nEstimated hours: ${safeHours}\n\n${safeDetails}`;
+		},
+
+		handleOpenJobIntentForm: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Requests and offers are available to verified members only.', 'error');
+				return;
+			}
+
+			const $trigger = $(e.currentTarget);
+			const $form = $('.zaobank-job-intent-form');
+			if (!$form.length) return;
+
+			const intent = $trigger.data('intent') === 'offer' ? 'offer' : 'request';
+			const sourceMessageId = parseInt($trigger.data('message-id'), 10) || 0;
+			const sourceMessage = String($trigger.attr('data-message-text') || '').trim();
+
+			$form.find('[name="intent"]').val(intent);
+			$form.find('[name="message_id"]').val(sourceMessageId ? String(sourceMessageId) : '');
+			$form.find('[name="title"]').val('');
+			$form.find('[name="hours"]').val('');
+			$form.find('[name="details"]').val('');
+
+			if (sourceMessageId && sourceMessage) {
+				$form.find('[name="details"]').val(sourceMessage);
+				$form.find('[name="title"]').val(this.deriveIntentTitle(sourceMessage, intent));
+			}
+
+			$form.find('[data-role="intent-heading"]').text(intent === 'offer' ? 'Offer Help' : 'Create Job Request');
+			$form.find('[data-role="intent-submit-label"]').text(
+				sourceMessageId
+					? (intent === 'offer' ? 'Convert to Offer' : 'Convert to Request')
+					: (intent === 'offer' ? 'Send Offer' : 'Send Request')
+			);
+
+			$form.removeAttr('hidden');
+			$form.find('[name="title"]').trigger('focus');
+		},
+
+		handleCancelJobIntentForm: function(e) {
+			if (e) {
+				e.preventDefault();
+			}
+			const $form = $('.zaobank-job-intent-form');
+			if (!$form.length) return;
+			$form.attr('hidden', true);
+			$form.find('[name="intent"]').val('request');
+			$form.find('[name="message_id"]').val('');
+			$form.find('[name="title"], [name="hours"], [name="details"]').val('');
+			$form.find('[data-role="intent-heading"]').text('Create Job Request');
+			$form.find('[data-role="intent-submit-label"]').text('Send Request');
+		},
+
+		handleConvertMessageIntent: function(e) {
+			this.handleOpenJobIntentForm(e);
+		},
+
+		handleJobIntentSubmit: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Requests and offers are available to verified members only.', 'error');
+				return;
+			}
+
+			const $form = $(e.currentTarget);
+			const $button = $form.find('[type="submit"]');
+			const intent = $form.find('[name="intent"]').val() === 'offer' ? 'offer' : 'request';
+			const sourceMessageId = parseInt($form.find('[name="message_id"]').val(), 10) || 0;
+			const userId = $('[data-component="conversation"]').data('user-id');
+			const title = $form.find('[name="title"]').val().trim();
+			const hoursRaw = $form.find('[name="hours"]').val().trim();
+			const details = $form.find('[name="details"]').val().trim();
+			const hours = parseFloat(hoursRaw);
+
+			if (!title) {
+				ZAOBank.showToast('Please add a short title.', 'error');
+				return;
+			}
+			if (!hours || hours < 0.25) {
+				ZAOBank.showToast('Please enter estimated hours (0.25 or more).', 'error');
+				return;
+			}
+			if (!details) {
+				ZAOBank.showToast('Please add a short description.', 'error');
+				return;
+			}
+			if (!userId) {
+				ZAOBank.showToast('Could not determine conversation user.', 'error');
+				return;
+			}
+			if ($form.data('processing')) {
+				return;
+			}
+
+			const roundedHours = Math.round(hours * 100) / 100;
+			const setSubmitLabel = function(label) {
+				const $label = $button.find('[data-role="intent-submit-label"]');
+				if ($label.length) {
+					$label.text(label);
+				} else {
+					$button.text(label);
+				}
+			};
+			$form.data('processing', true);
+			$button.prop('disabled', true);
+			setSubmitLabel(sourceMessageId ? 'Converting...' : 'Sending...');
+
+			const endpoint = sourceMessageId ? `messages/${sourceMessageId}/convert-intent` : 'messages';
+			const payload = sourceMessageId
+				? {
+					intent: intent,
+					title: title,
+					hours: roundedHours,
+					details: details
+				}
+				: {
+					to_user_id: userId,
+					message_type: intent === 'offer' ? 'job_offer' : 'job_request',
+					message: this.buildIntentMessage(intent, title, roundedHours, details)
+				};
+			const resetLabel = sourceMessageId
+				? (intent === 'offer' ? 'Convert to Offer' : 'Convert to Request')
+				: (intent === 'offer' ? 'Send Offer' : 'Send Request');
+
+			this.apiCall(endpoint, 'POST', payload, function() {
+				ZAOBank.showToast(sourceMessageId ? 'Message converted.' : 'Sent successfully.', 'success');
+				ZAOBank.handleCancelJobIntentForm();
+				ZAOBank.loadConversationMessages(userId);
+				$form.data('processing', false);
+				$button.prop('disabled', false);
+				setSubmitLabel(resetLabel);
+			}, function() {
+				$form.data('processing', false);
+				$button.prop('disabled', false);
+				setSubmitLabel(resetLabel);
+			});
+		},
+
+		handleAcceptJobIntent: function(e) {
+			e.preventDefault();
+			if (!zaobank.hasMemberAccess) {
+				ZAOBank.showToast('Requests and offers are available to verified members only.', 'error');
+				return;
+			}
+
+			const $button = $(e.currentTarget);
+			const messageId = parseInt($button.data('message-id'), 10);
+			const userId = $('[data-component="conversation"]').data('user-id');
+			const parsedHours = parseFloat($button.data('hours'));
+			const defaultHours = (!isNaN(parsedHours) && parsedHours > 0) ? parsedHours : 1;
+			const hoursInput = window.prompt('Estimated hours for this job:', String(defaultHours));
+
+			if (!messageId || !userId) return;
+			if (hoursInput === null) return;
+
+			const hours = parseFloat(hoursInput);
+			if (!hours || hours < 0.25) {
+				ZAOBank.showToast('Please enter estimated hours (0.25 or more).', 'error');
+				return;
+			}
+
+			if ($button.data('processing')) {
+				return;
+			}
+
+			const originalLabel = $button.text();
+			$button.data('processing', true);
+			$button.prop('disabled', true).text('Accepting...');
+
+			this.apiCall(`messages/${messageId}/accept-intent`, 'POST', { hours: hours }, function() {
+				ZAOBank.showToast('Request accepted. Job created.', 'success');
+				ZAOBank.loadConversationMessages(userId);
+				$button.data('processing', false);
+				$button.prop('disabled', false).text(originalLabel);
+			}, function() {
+				$button.data('processing', false);
+				$button.prop('disabled', false).text(originalLabel);
 			});
 		},
 
@@ -1806,23 +2084,10 @@
 			this.apiCall('messages', 'POST', {
 				to_user_id: userId,
 				message: message
-			}, function(response) {
+			}, function() {
 				$input.val('').trigger('input');
 				$button.prop('disabled', false);
-
-				// Add message to list
-				const template = $('#zaobank-message-template').html();
-				const html = ZAOBank.renderTemplate(template, {
-					message: ZAOBank.escapeHtml(message),
-					time: 'Just now',
-					is_own: true
-				});
-
-				$('.zaobank-messages-list').append(html);
-
-				// Scroll to bottom
-				const $container = $('.zaobank-messages-container');
-				$container.scrollTop($container[0].scrollHeight);
+				ZAOBank.loadConversationMessages(userId);
 			}, function() {
 				$button.prop('disabled', false);
 			});

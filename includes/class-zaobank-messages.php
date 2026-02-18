@@ -216,6 +216,64 @@ class ZAOBank_Messages {
 	}
 
 	/**
+	 * Get a raw message row by ID.
+	 */
+	public static function get_message_row($message_id) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_messages_table();
+
+		return $wpdb->get_row($wpdb->prepare(
+			"SELECT * FROM $table WHERE id = %d",
+			(int) $message_id
+		));
+	}
+
+	/**
+	 * Get a formatted message by ID.
+	 */
+	public static function get_message($message_id) {
+		$message = self::get_message_row($message_id);
+		if (!$message) {
+			return null;
+		}
+
+		return self::format_message_data($message);
+	}
+
+	/**
+	 * Update a message row by ID.
+	 */
+	public static function update_message($message_id, $data, $format = null) {
+		global $wpdb;
+		$table = ZAOBank_Database::get_messages_table();
+
+		if (empty($data) || !is_array($data)) {
+			return false;
+		}
+
+		if ($format === null) {
+			$format = array();
+			foreach ($data as $value) {
+				if (is_int($value)) {
+					$format[] = '%d';
+				} else {
+					$format[] = '%s';
+				}
+			}
+		}
+
+		$result = $wpdb->update(
+			$table,
+			$data,
+			array('id' => (int) $message_id),
+			$format,
+			array('%d')
+		);
+
+		return $result !== false;
+	}
+
+	/**
 	 * Format message data.
 	 */
 	private static function format_message_data($message) {
