@@ -88,7 +88,7 @@
 			$(document).on('submit', '#zaobank-job-form', this.handleJobFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-profile-form', this.handleProfileFormSubmit.bind(this));
 			$(document).on('submit', '[data-component="message-form"]', this.handleMessageSubmit.bind(this));
-			$(document).on('submit', '[data-component="job-intent-form"]', this.handleJobIntentSubmit.bind(this));
+			$(document).on('submit', '[data-component="job-intent-form"], .zaobank-job-intent-form', this.handleJobIntentSubmit.bind(this));
 
 			// Appreciation
 			$(document).on('click', '.zaobank-give-appreciation', this.handleGiveAppreciation.bind(this));
@@ -1877,16 +1877,70 @@
 			return `${intentLabel}: ${safeTitle}\nEstimated hours: ${safeHours}\n\n${safeDetails}`;
 		},
 
+		ensureJobIntentForm: function() {
+			let $form = $('.zaobank-job-intent-form').first();
+			if ($form.length) {
+				return $form;
+			}
+
+			const $conversation = $('[data-component="conversation"]').first();
+			if (!$conversation.length) {
+				return $();
+			}
+
+			const formHtml = [
+				'<form class="zaobank-job-intent-form" data-component="job-intent-form" hidden>',
+				'	<input type="hidden" name="intent" value="request">',
+				'	<input type="hidden" name="message_id" value="">',
+				'	<div class="zaobank-card">',
+				'		<div class="zaobank-card-body">',
+				'			<h3 data-role="intent-heading">Create Job Request</h3>',
+				'			<div class="zaobank-form-group">',
+				'				<label class="zaobank-label" for="zaobank-intent-title">Title</label>',
+				'				<input type="text" id="zaobank-intent-title" name="title" class="zaobank-input" maxlength="120" required>',
+				'			</div>',
+				'			<div class="zaobank-form-group">',
+				'				<label class="zaobank-label" for="zaobank-intent-hours">Estimated hours</label>',
+				'				<input type="number" id="zaobank-intent-hours" name="hours" min="0.25" step="0.25" class="zaobank-input" required>',
+				'			</div>',
+				'			<div class="zaobank-form-group">',
+				'				<label class="zaobank-label" for="zaobank-intent-details">Details</label>',
+				'				<textarea id="zaobank-intent-details" name="details" rows="3" class="zaobank-textarea" required></textarea>',
+				'			</div>',
+				'			<div class="zaobank-job-intent-actions">',
+				'				<button type="submit" class="zaobank-btn zaobank-btn-primary">',
+				'					<span data-role="intent-submit-label">Send Request</span>',
+				'				</button>',
+				'				<button type="button" class="zaobank-btn zaobank-btn-ghost zaobank-cancel-job-intent">Cancel</button>',
+				'			</div>',
+				'		</div>',
+				'	</div>',
+				'</form>'
+			].join('\n');
+
+			const $composer = $conversation.find('.zaobank-message-composer').first();
+			if ($composer.length) {
+				$composer.before(formHtml);
+			} else {
+				$conversation.append(formHtml);
+			}
+
+			return $('.zaobank-job-intent-form').first();
+		},
+
 		handleOpenJobIntentForm: function(e) {
 			e.preventDefault();
 			if (!zaobank.hasMemberAccess) {
-				ZAOBank.showToast('Requests and offers are available to verified members only.', 'error');
+				ZAOBank.showToast('Requests and offers are limited by Member Access Roles in ZAO Bank settings.', 'error');
 				return;
 			}
 
 			const $trigger = $(e.currentTarget);
-			const $form = $('.zaobank-job-intent-form');
-			if (!$form.length) return;
+			const $form = this.ensureJobIntentForm();
+			if (!$form.length) {
+				ZAOBank.showToast('Could not load the request form on this page.', 'error');
+				return;
+			}
 
 			const intent = $trigger.data('intent') === 'offer' ? 'offer' : 'request';
 			const sourceMessageId = parseInt($trigger.data('message-id'), 10) || 0;
@@ -1918,7 +1972,7 @@
 			if (e) {
 				e.preventDefault();
 			}
-			const $form = $('.zaobank-job-intent-form');
+			const $form = $('.zaobank-job-intent-form').first();
 			if (!$form.length) return;
 			$form.attr('hidden', true);
 			$form.find('[name="intent"]').val('request');

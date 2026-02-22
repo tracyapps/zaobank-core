@@ -13,21 +13,27 @@ class ZAOBank_Public {
 	}
 
 	public function enqueue_styles() {
+		$style_file = ZAOBANK_PLUGIN_DIR . 'assets/css/zaobank-public.css';
+		$style_version = file_exists($style_file) ? (string) filemtime($style_file) : $this->version;
+
 		wp_enqueue_style(
 			$this->plugin_name,
 			ZAOBANK_PLUGIN_URL . 'assets/css/zaobank-public.css',
 			array(),
-			$this->version,
+			$style_version,
 			'all'
 		);
 	}
 
 	public function enqueue_scripts() {
+		$script_file = ZAOBANK_PLUGIN_DIR . 'assets/js/zaobank-public.js';
+		$script_version = file_exists($script_file) ? (string) filemtime($script_file) : $this->version;
+
 		wp_enqueue_script(
 			$this->plugin_name,
 			ZAOBANK_PLUGIN_URL . 'assets/js/zaobank-public.js',
 			array('jquery'),
-			$this->version,
+			$script_version,
 			false
 		);
 

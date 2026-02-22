@@ -51,6 +51,7 @@ The plugin will automatically:
 - Register custom post types and taxonomies
 - Set up default capabilities
 - Create REST API endpoints
+- Cache-bust frontend CSS/JS using file modification timestamps so deployments pick up current behavior immediately
 
 ### 4. Configure Regions
 

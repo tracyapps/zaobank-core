@@ -73,6 +73,7 @@ User Action → REST API → Security Check → Business Logic → Database → 
 ### Overview
 
 The plugin provides a complete mobile-first frontend using shortcodes. Templates are REST API powered with progressive enhancement.
+Frontend assets are versioned with `filemtime()` in `public/class-zaobank-public.php`, so script/style updates invalidate browser caches without manual plugin version bumps.
 
 ### Template Override System
 
