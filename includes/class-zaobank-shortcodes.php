@@ -425,7 +425,7 @@ class ZAOBank_Shortcodes {
 			'profile'       => __('User profile view', 'zaobank'),
 			'profile-edit'  => __('Profile edit form', 'zaobank'),
 			'messages'      => __('Conversations list', 'zaobank'),
-			'more'          => __('More menu (messages, notifications, profile edit)', 'zaobank'),
+			'more'          => __('More menu (messages, notifications, settings, profile edit)', 'zaobank'),
 			'conversation'  => __('Single conversation thread', 'zaobank'),
 			'exchanges'     => __('Exchange history', 'zaobank'),
 			'appreciations' => __('Appreciations received/given', 'zaobank'),

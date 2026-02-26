@@ -130,7 +130,7 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 | `[zaobank_profile]` | `profile.php` | User profile (own or other) | Partial |
 | `[zaobank_profile_edit]` | `profile-edit.php` | Profile edit form | Yes |
 | `[zaobank_messages]` | `messages.php` or `conversation.php` | Conversations list; delegates to conversation view on `?user_id=`, job updates view on `?view=updates` | Yes |
-| `[zaobank_more]` | `more.php` | More menu (messages, job notifications, profile edit shortcuts) | Yes |
+| `[zaobank_more]` | `more.php` | More menu (messages, job notifications, settings, profile edit shortcuts) | Yes |
 | `[zaobank_conversation user_id="X"]` | `conversation.php` | Single conversation thread (standalone) | Yes |
 | `[zaobank_exchanges]` | `exchanges.php` | Exchange history | Yes |
 | `[zaobank_appreciations]` | `appreciations.php` | Appreciations received/given | Partial |
@@ -159,7 +159,7 @@ add_filter('zaobank_template_paths', function($paths, $template_name) {
 - **URL routing**: When `?user_id=X` is present, delegates to `[zaobank_conversation]` and renders the conversation view. When `?view=updates` is present, shows the job updates view instead of the conversations list. This allows one page to handle conversations list, individual conversations, and job notifications.
 
 #### `[zaobank_more]`
-- `view` (string): Optional view override (`messages` or `updates`). Defaults to `messages`, and also supports `?view=updates` in the URL.
+- `view` (string): Optional view override (`messages`, `updates`, or `settings`). Defaults to `messages`.
 
 #### `[zaobank_conversation]`
 - `user_id` (int): Other user in conversation. Also accepts `?user_id=X`.
@@ -1090,7 +1090,7 @@ Save a profile to the current user's address book (authenticated, member access)
 Remove a saved profile from the current user's address book (authenticated, member access).
 
 #### GET /community/users
-List community members available for requests (authenticated).
+List community members visible in the directory (authenticated).
 
 **Parameters**:
 - `q` (string, optional): Search by name, email, or skills
@@ -1126,7 +1126,8 @@ List community members available for requests (authenticated).
 
 **Notes**:
 - Results are limited to users whose roles are in **Settings → ZAO Bank → Member Access Roles**.
-- Users who turn off `available_for_requests` are excluded from community results.
+- Users who turn off `directory_visible` are excluded from community results.
+- Users with `available_for_requests = false` can still appear, but request actions should be disabled in the UI.
 
 #### GET /me/profile
 Get current user's profile (authenticated).
@@ -1161,6 +1162,7 @@ Get current user's profile (authenticated).
 - `has_signal` is derived from whether `signal` is in the user's contact preferences
 - `avatar_url` is included on both own and public profiles. Uses ACF `user_profile_image` attachment if set, falls back to Gravatar.
 - `profile_image_id` (attachment ID) is only included on own profile
+- Directory visibility and digest settings are managed through `GET/PUT /me/settings`.
 
 #### PUT /me/profile
 Update current user's profile (authenticated).
@@ -1173,7 +1175,6 @@ Update current user's profile (authenticated).
     "user_bio": "string",
     "user_skills": "string",
     "user_availability": "string",
-    "user_available_for_requests": true,
     "user_phone": "string",
     "user_discord_id": "string",
     "user_primary_region": 5,
@@ -1183,6 +1184,59 @@ Update current user's profile (authenticated).
     "user_contact_preferences": ["email", "signal", "discord", "platform-message"]
 }
 ```
+
+#### GET /me/settings
+Get current user's app settings (authenticated).
+
+**Response**:
+```json
+{
+    "settings": {
+        "message_notification_mode": "email_instant",
+        "directory_visible": true,
+        "available_for_requests": true,
+        "job_updates_email": true,
+        "appreciations_email": true,
+        "jobs_digest_enabled": true,
+        "jobs_digest_frequency": "weekly",
+        "jobs_digest_limit": 10,
+        "jobs_digest_regions": [5, 7],
+        "jobs_digest_job_types": [3]
+    },
+    "options": {
+        "message_notification_modes": [
+            { "value": "in_app", "label": "In-app only" },
+            { "value": "email_instant", "label": "Email instantly" }
+        ],
+        "jobs_digest_frequencies": [
+            { "value": "daily", "label": "Daily" },
+            { "value": "weekly", "label": "Weekly" }
+        ]
+    }
+}
+```
+
+#### PUT /me/settings
+Update current user's app settings (authenticated).
+
+**Body** (all fields optional):
+```json
+{
+    "message_notification_mode": "email_instant",
+    "directory_visible": true,
+    "available_for_requests": true,
+    "job_updates_email": true,
+    "appreciations_email": true,
+    "jobs_digest_enabled": true,
+    "jobs_digest_frequency": "weekly",
+    "jobs_digest_limit": 10,
+    "jobs_digest_regions": [5, 7],
+    "jobs_digest_job_types": [3]
+}
+```
+
+**Notes**:
+- `user_available_for_requests` is still accepted by `PUT /me/profile` for backwards compatibility, but new UI writes this via `PUT /me/settings`.
 
 #### GET /users/search
 Search verified users for messaging (authenticated).
@@ -1490,6 +1544,15 @@ do_action('zaobank_exchange_created', $exchange_id, $data);
 
 // After flag creation
 do_action('zaobank_flag_created', $flag_id, $data);
+
+// After message creation
+do_action('zaobank_message_created', $message_id, $insert_data);
+
+// After appreciation creation
+do_action('zaobank_appreciation_created', $appreciation_id, $data);
+
+// Hourly cron hook for notification digests
+do_action('zaobank_process_notification_digests');
 ```
 
 ### Filter Hooks
@@ -1518,6 +1581,12 @@ $slugs = apply_filters('zaobank_page_slugs', $slugs);
 
 // Modify template lookup paths
 $paths = apply_filters('zaobank_template_paths', $paths, $template_name);
+
+// Send SMS notification via external provider
+$handled = apply_filters('zaobank_send_sms_notification', false, $payload, $user_id);
+
+// Send Discord notification via external provider
+$handled = apply_filters('zaobank_send_discord_notification', false, $payload, $user_id);
 ```
 
 ### Example: Configure /app/ Page Structure

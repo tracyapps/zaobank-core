@@ -59,7 +59,17 @@ class ZAOBank_Appreciations {
 			);
 		}
 
-		return $wpdb->insert_id;
+		$appreciation_id = (int) $wpdb->insert_id;
+
+		/**
+		 * Fires after an appreciation is created.
+		 *
+		 * @param int   $appreciation_id Inserted appreciation ID.
+		 * @param array $data            Original appreciation payload.
+		 */
+		do_action('zaobank_appreciation_created', $appreciation_id, $data);
+
+		return $appreciation_id;
 	}
 
 	/**

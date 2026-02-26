@@ -87,6 +87,7 @@
 			// Forms
 			$(document).on('submit', '#zaobank-job-form', this.handleJobFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-profile-form', this.handleProfileFormSubmit.bind(this));
+			$(document).on('submit', '#zaobank-user-settings-form', this.handleUserSettingsSubmit.bind(this));
 			$(document).on('submit', '[data-component="message-form"]', this.handleMessageSubmit.bind(this));
 			$(document).on('submit', '[data-component="job-intent-form"], .zaobank-job-intent-form', this.handleJobIntentSubmit.bind(this));
 
@@ -139,6 +140,7 @@
 				'community': this.initCommunity,
 				'profile': this.initProfile,
 				'profile-edit': this.initProfileEdit,
+				'user-settings': this.initUserSettings,
 				'messages': this.initMessages,
 				'conversation': this.initConversation,
 				'exchanges': this.initExchanges,
@@ -637,6 +639,8 @@
 				const html = users.map(function(user) {
 					const isSaved = (ZAOBank.state.community.savedIds || []).indexOf(user.id) !== -1;
 					const isFlagged = !!user.is_flagged;
+					const canRequestAsMember = zaobank.isLoggedIn && zaobank.hasMemberAccess;
+					const acceptsRequests = user.available_for_requests !== false;
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
@@ -648,12 +652,15 @@
 						skill_tags: Array.isArray(user.skill_tags) ? user.skill_tags.map(function(tag) {
 							return { label: ZAOBank.formatTagLabel(tag), slug: tag };
 						}) : [],
-						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						can_save: zaobank.isLoggedIn && zaobank.hasMemberAccess,
 						is_saved: isSaved,
 						save_label: isSaved ? 'Saved' : 'Save',
 						is_flagged: isFlagged,
-						flagged_class: isFlagged ? 'zaobank-flagged-content' : ''
+						flagged_class: isFlagged ? 'zaobank-flagged-content' : '',
+						can_request: canRequestAsMember && acceptsRequests,
+						request_hint: !canRequestAsMember
+							? 'Requests are available to verified members.'
+							: (!acceptsRequests ? 'Not accepting requests right now.' : '')
 					});
 				}).join('');
 
@@ -754,6 +761,8 @@
 				$empty.hide();
 				const template = $('#zaobank-saved-profile-card-template').html();
 				const html = users.map(function(user) {
+					const canRequestAsMember = zaobank.isLoggedIn && zaobank.hasMemberAccess;
+					const acceptsRequests = user.available_for_requests !== false;
 					return ZAOBank.renderTemplate(template, {
 						id: user.id,
 						name: ZAOBank.escapeHtml(user.display_name || user.name || 'Member'),
@@ -765,7 +774,10 @@
 						skill_tags: Array.isArray(user.skill_tags) ? user.skill_tags.map(function(tag) {
 							return { label: ZAOBank.formatTagLabel(tag), slug: tag };
 						}) : [],
-						can_request: zaobank.isLoggedIn && zaobank.hasMemberAccess
+						can_request: canRequestAsMember && acceptsRequests,
+						request_hint: !canRequestAsMember
+							? 'Requests are available to verified members.'
+							: (!acceptsRequests ? 'Not accepting requests right now.' : '')
 					});
 				}).join('');
 
@@ -1416,7 +1428,6 @@
 				$form.find('[name="user_bio"]').val(profile.bio || '');
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
-				$form.find('[name="user_available_for_requests"]').prop('checked', profile.available_for_requests !== false);
 				$form.find('[name="user_phone"]').val(profile.phone || '');
 				$form.find('[name="user_discord_id"]').val(profile.discord_id || '');
 
@@ -1476,7 +1487,6 @@
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
-				user_available_for_requests: $form.find('[name="user_available_for_requests"]').is(':checked') ? 1 : 0,
 				user_phone: $form.find('[name="user_phone"]').val(),
 				user_discord_id: $form.find('[name="user_discord_id"]').val(),
 				user_primary_region: $form.find('[name="user_primary_region"]').val(),
@@ -1505,6 +1515,86 @@
 				}
 			}, function() {
 				$button.prop('disabled', false).text('Save Changes');
+			});
+		},
+
+		// =========================================================================
+		// User Settings
+		// =========================================================================
+
+		initUserSettings: function() {
+			this.loadUserSettings();
+		},
+
+		loadUserSettings: function() {
+			const $form = $('#zaobank-user-settings-form');
+			if (!$form.length) return;
+
+			this.apiCall('me/settings', 'GET', {}, function(response) {
+				const settings = response.settings || {};
+				$form.attr('data-loading', 'false');
+
+				$form.find('[name="message_notification_mode"]').val(settings.message_notification_mode || 'in_app');
+				$form.find('[name="directory_visible"]').prop('checked', settings.directory_visible !== false);
+				$form.find('[name="available_for_requests"]').prop('checked', settings.available_for_requests !== false);
+				$form.find('[name="job_updates_email"]').prop('checked', settings.job_updates_email !== false);
+				$form.find('[name="appreciations_email"]').prop('checked', settings.appreciations_email !== false);
+				$form.find('[name="jobs_digest_enabled"]').prop('checked', !!settings.jobs_digest_enabled);
+				$form.find('[name="jobs_digest_frequency"]').val(settings.jobs_digest_frequency || 'weekly');
+				$form.find('[name="jobs_digest_limit"]').val(String(settings.jobs_digest_limit || 10));
+
+				$form.find('[name="jobs_digest_regions[]"]').prop('checked', false);
+				if (Array.isArray(settings.jobs_digest_regions)) {
+					settings.jobs_digest_regions.forEach(function(regionId) {
+						$form.find(`[name="jobs_digest_regions[]"][value="${parseInt(regionId, 10)}"]`).prop('checked', true);
+					});
+				}
+
+				$form.find('[name="jobs_digest_job_types[]"]').prop('checked', false);
+				if (Array.isArray(settings.jobs_digest_job_types)) {
+					settings.jobs_digest_job_types.forEach(function(typeId) {
+						$form.find(`[name="jobs_digest_job_types[]"][value="${parseInt(typeId, 10)}"]`).prop('checked', true);
+					});
+				}
+			}, function() {
+				$form.attr('data-loading', 'false');
+			});
+		},
+
+		handleUserSettingsSubmit: function(e) {
+			e.preventDefault();
+			const $form = $(e.currentTarget);
+			const $button = $form.find('[type="submit"]');
+			const originalLabel = $button.text();
+
+			$button.prop('disabled', true).text('Saving...');
+
+			const data = {
+				message_notification_mode: $form.find('[name="message_notification_mode"]').val() || 'in_app',
+				directory_visible: $form.find('[name="directory_visible"]').is(':checked') ? 1 : 0,
+				available_for_requests: $form.find('[name="available_for_requests"]').is(':checked') ? 1 : 0,
+				job_updates_email: $form.find('[name="job_updates_email"]').is(':checked') ? 1 : 0,
+				appreciations_email: $form.find('[name="appreciations_email"]').is(':checked') ? 1 : 0,
+				jobs_digest_enabled: $form.find('[name="jobs_digest_enabled"]').is(':checked') ? 1 : 0,
+				jobs_digest_frequency: $form.find('[name="jobs_digest_frequency"]').val() || 'weekly',
+				jobs_digest_limit: parseInt($form.find('[name="jobs_digest_limit"]').val(), 10) || 10,
+				jobs_digest_regions: $form.find('[name="jobs_digest_regions[]"]:checked').map(function() {
+					return parseInt($(this).val(), 10);
+				}).get().filter(function(value) {
+					return Number.isFinite(value) && value > 0;
+				}),
+				jobs_digest_job_types: $form.find('[name="jobs_digest_job_types[]"]:checked').map(function() {
+					return parseInt($(this).val(), 10);
+				}).get().filter(function(value) {
+					return Number.isFinite(value) && value > 0;
+				})
+			};
+
+			this.apiCall('me/settings', 'PUT', data, function() {
+				$button.prop('disabled', false).text(originalLabel);
+				ZAOBank.showToast('Settings updated.', 'success');
+			}, function() {
+				$button.prop('disabled', false).text(originalLabel);
 			});
 		},
 

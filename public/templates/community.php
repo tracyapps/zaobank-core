@@ -259,7 +259,7 @@ $is_address_book = ($current_view === 'address-book');
 				<?php _e('Send a Request', 'zaobank'); ?>
 			</button>
 			{{else}}
-			<span class="zaobank-form-hint"><?php _e('Requests are available to verified members.', 'zaobank'); ?></span>
+			<span class="zaobank-form-hint">{{request_hint}}</span>
 			{{/if}}
 		</div>
 
@@ -334,7 +334,7 @@ $is_address_book = ($current_view === 'address-book');
 				<?php _e('Send a Request', 'zaobank'); ?>
 			</button>
 			{{else}}
-			<span class="zaobank-form-hint"><?php _e('Requests are available to verified members.', 'zaobank'); ?></span>
+			<span class="zaobank-form-hint">{{request_hint}}</span>
 			{{/if}}
 		</div>
 

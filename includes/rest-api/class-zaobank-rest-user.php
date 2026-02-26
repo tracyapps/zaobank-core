@@ -95,6 +95,20 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 			'permission_callback' => array($this, 'check_member_access')
 		));
 
+		// Get current user app settings (notifications/privacy controls)
+		register_rest_route($this->namespace, '/me/settings', array(
+			'methods' => WP_REST_Server::READABLE,
+			'callback' => array($this, 'get_settings'),
+			'permission_callback' => array($this, 'check_authentication')
+		));
+
+		// Update current user app settings
+		register_rest_route($this->namespace, '/me/settings', array(
+			'methods' => WP_REST_Server::EDITABLE,
+			'callback' => array($this, 'update_settings'),
+			'permission_callback' => array($this, 'check_authentication')
+		));
+
 		// Search users (members only)
 		register_rest_route($this->namespace, '/users/search', array(
 			'methods' => WP_REST_Server::READABLE,
@@ -476,6 +490,63 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 	}
 
 	/**
+	 * Get current user's app settings.
+	 */
+	public function get_settings($request) {
+		$user_id = get_current_user_id();
+
+		$settings = ZAOBank_Notifications::get_user_settings($user_id);
+		$message_mode_labels = ZAOBank_Notifications::get_message_mode_labels();
+		$digest_frequency_labels = ZAOBank_Notifications::get_digest_frequency_labels();
+
+		$message_modes = array();
+		foreach ($message_mode_labels as $value => $label) {
+			$message_modes[] = array(
+				'value' => $value,
+				'label' => $label
+			);
+		}
+
+		$digest_frequencies = array();
+		foreach ($digest_frequency_labels as $value => $label) {
+			$digest_frequencies[] = array(
+				'value' => $value,
+				'label' => $label
+			);
+		}
+
+		return $this->success_response(array(
+			'settings' => $settings,
+			'options' => array(
+				'message_notification_modes' => $message_modes,
+				'jobs_digest_frequencies' => $digest_frequencies
+			)
+		));
+	}
+
+	/**
+	 * Update current user's app settings.
+	 */
+	public function update_settings($request) {
+		$user_id = get_current_user_id();
+		$params = $request->get_params();
+
+		$result = ZAOBank_Notifications::update_user_settings($user_id, $params);
+		if (is_wp_error($result)) {
+			return $this->error_response(
+				$result->get_error_code(),
+				$result->get_error_message(),
+				400
+			);
+		}
+
+		return $this->success_response(array(
+			'message' => __('Settings updated successfully', 'zaobank'),
+			'settings' => ZAOBank_Notifications::get_user_settings($user_id)
+		));
+	}
+
+	/**
 	 * Search verified users for messaging.
 	 */
 	public function search_users($request) {
@@ -562,19 +633,19 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 
 		$meta_query = array('relation' => 'AND');
 
-		$availability_clause = array(
+		$directory_visibility_clause = array(
 			'relation' => 'OR',
 			array(
-				'key' => 'user_available_for_requests',
+				'key' => 'zaobank_directory_visible',
 				'compare' => 'NOT EXISTS'
 			),
 			array(
-				'key' => 'user_available_for_requests',
+				'key' => 'zaobank_directory_visible',
 				'value' => '1',
 				'compare' => '='
 			)
 		);
-		$meta_query[] = $availability_clause;
+		$meta_query[] = $directory_visibility_clause;
 
 		if ($region) {
 			$meta_query[] = array(

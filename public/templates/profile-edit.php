@@ -131,14 +131,6 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					       placeholder="<?php esc_attr_e('e.g., Weekday evenings, Saturday mornings', 'zaobank'); ?>">
 				</div>
 
-				<div class="zaobank-form-group">
-					<label class="zaobank-checkbox-label">
-						<input type="checkbox" name="user_available_for_requests" value="1" checked>
-						<span><?php _e('Available for skill requests', 'zaobank'); ?></span>
-					</label>
-					<p class="zaobank-form-hint"><?php _e('Turn this off to hide your profile from community requests.', 'zaobank'); ?></p>
-				</div>
-
 				<!-- Primary Region -->
 				<div class="zaobank-form-group">
 					<label for="profile-region" class="zaobank-label">

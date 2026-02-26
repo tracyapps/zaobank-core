@@ -45,7 +45,17 @@ class ZAOBank_Messages {
 			);
 		}
 
-		return $wpdb->insert_id;
+		$message_id = (int) $wpdb->insert_id;
+
+		/**
+		 * Fires after a new message is stored.
+		 *
+		 * @param int   $message_id Inserted message ID.
+		 * @param array $insert_data Sanitized data written to DB.
+		 */
+		do_action('zaobank_message_created', $message_id, $insert_data);
+
+		return $message_id;
 	}
 
 	/**

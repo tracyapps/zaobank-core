@@ -68,6 +68,7 @@ class ZAOBank_Core {
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/class-zaobank-flags.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/class-zaobank-messages.php';
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/class-zaobank-private-notes.php';
+		require_once ZAOBANK_PLUGIN_DIR . 'includes/class-zaobank-notifications.php';
 
 		// REST API
 		require_once ZAOBANK_PLUGIN_DIR . 'includes/rest-api/class-zaobank-rest-controller.php';
@@ -144,6 +145,12 @@ class ZAOBank_Core {
 
 		// Notify moderators when a new user registers
 		$this->loader->add_action('user_register', $this, 'notify_mod_on_registration');
+
+		$notifications = new ZAOBank_Notifications();
+		$this->loader->add_action('init', $notifications, 'ensure_cron_scheduled');
+		$this->loader->add_action(ZAOBank_Notifications::DIGEST_HOOK, $notifications, 'process_scheduled_digests');
+		$this->loader->add_action('zaobank_message_created', $notifications, 'handle_message_created', 10, 2);
+		$this->loader->add_action('zaobank_appreciation_created', $notifications, 'handle_appreciation_created', 10, 2);
 	}
 
 	/**

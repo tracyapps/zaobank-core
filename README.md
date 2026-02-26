@@ -156,6 +156,8 @@ POST   /me/saved-profiles    - Save a profile to your address book
 DELETE /me/saved-profiles/{id} - Remove a saved profile
 GET    /me/profile           - Get current user's profile
 PUT    /me/profile           - Update current user's profile
+GET    /me/settings          - Get current user's app settings (notifications/privacy)
+PUT    /me/settings          - Update current user's app settings
 GET    /me/statistics        - Get current user's statistics
 GET    /users/{id}           - Get user's public profile
 GET    /community/users      - Community directory (filters: `q`, `skill`, `skill_tags`, `region`, `sort`, `page`, `per_page`)
@@ -238,6 +240,30 @@ fetch('/wp-json/zaobank/v1/me/profile', {
 })
   .then(response => response.json())
   .then(data => console.log('Profile updated:', data.profile));
+```
+
+### Update App Settings
+
+```javascript
+fetch('/wp-json/zaobank/v1/me/settings', {
+  method: 'PUT',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-WP-Nonce': wpApiSettings.nonce
+  },
+  body: JSON.stringify({
+    message_notification_mode: "email_instant",
+    directory_visible: true,
+    available_for_requests: true,
+    jobs_digest_enabled: true,
+    jobs_digest_frequency: "weekly",
+    jobs_digest_limit: 10,
+    jobs_digest_regions: [5, 7],
+    jobs_digest_job_types: [3]
+  })
+})
+  .then(response => response.json())
+  .then(data => console.log('Settings updated:', data.settings));
 ```
 
 ### Create a Job
@@ -405,6 +431,27 @@ Private notes are strictly scoped to the author and are never:
 - Aggregated or analyzed
 - Exposed via broad REST queries
 
+## Notification Features
+
+- New message notification mode supports:
+  - In-app only
+  - Instant email
+  - Instant SMS (provider integration required)
+  - Instant Discord (provider integration required)
+  - Daily email digest
+  - Weekly email digest
+- Open-jobs digest supports:
+  - Daily or weekly frequency
+  - Per-user item limit
+  - Optional region and job type filters
+- Privacy controls in app settings include:
+  - Directory visibility
+  - Availability for direct requests
+  - Job update and appreciation email toggles
+- Integration hooks for external channels:
+  - `zaobank_send_sms_notification`
+  - `zaobank_send_discord_notification`
+
 ## Formidable Forms Integration
 
 You can create custom forms using Formidable Forms Pro for:
@@ -480,7 +527,7 @@ Then edit the theme copy to customize the layout while keeping the data attribut
 | `profile.php` | User profile view |
 | `profile-edit.php` | Profile edit form |
 | `messages.php` | Conversations list / job updates view |
-| `more.php` | More menu (messages, job notifications, profile edit shortcuts) |
+| `more.php` | More menu (messages, job notifications, settings, profile edit shortcuts) |
 | `conversation.php` | Single conversation thread |
 | `exchanges.php` | Exchange history (shows appreciation status + people worked with) |
 | `appreciations.php` | Appreciations list |
@@ -741,7 +788,7 @@ ZAO Bank provides shortcodes for building mobile-first, responsive pages:
 | `[zaobank_profile]` | User profile view | `user_id` (optional, defaults to current user) |
 | `[zaobank_profile_edit]` | Profile edit form | - |
 | `[zaobank_messages]` | Conversations list; renders conversation view when `?user_id=` is in the URL, job updates view when `?view=updates` | - |
-| `[zaobank_more]` | More menu (messages, job notifications, profile edit shortcuts) | `view` (optional, `messages` or `updates`) |
+| `[zaobank_more]` | More menu (messages, job notifications, settings, profile edit shortcuts) | `view` (optional, `messages`, `updates`, or `settings`) |
 | `[zaobank_conversation]` | Single conversation thread (standalone) | `user_id` |
 | `[zaobank_exchanges]` | Exchange history | - |
 | `[zaobank_appreciations]` | Appreciations received/given | `user_id` (optional) |
@@ -759,7 +806,7 @@ Create WordPress pages for each section:
 - `/timebank-profile/` → `[zaobank_profile]`
 - `/timebank-profile-edit/` → `[zaobank_profile_edit]`
 - `/timebank-messages/` → `[zaobank_messages]` (also handles `?user_id=X` for conversation view and `?view=updates` for job updates)
-- `/timebank-more/` → `[zaobank_more]` (messages, job notifications, profile edit shortcuts)
+- `/timebank-more/` → `[zaobank_more]` (messages, job notifications, settings, profile edit shortcuts)
 - `/timebank-exchanges/` → `[zaobank_exchanges]`
 - `/timebank-appreciations/` → `[zaobank_appreciations]`
 
