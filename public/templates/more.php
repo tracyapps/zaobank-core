@@ -10,7 +10,9 @@ if (!defined('ABSPATH')) {
 }
 
 $urls = ZAOBank_Shortcodes::get_page_urls();
-$current_view = isset($view) ? sanitize_key($view) : 'messages';
+$current_view = isset($view)
+	? sanitize_key($view)
+	: (isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'messages');
 $valid_views = array('messages', 'updates', 'settings');
 if (!in_array($current_view, $valid_views, true)) {
 	$current_view = 'messages';
