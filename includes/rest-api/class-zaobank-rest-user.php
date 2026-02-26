@@ -496,14 +496,16 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		$user_id = get_current_user_id();
 
 		$settings = ZAOBank_Notifications::get_user_settings($user_id);
-		$message_mode_labels = ZAOBank_Notifications::get_message_mode_labels();
+		$message_channel_labels = ZAOBank_Notifications::get_message_channel_labels();
 		$digest_frequency_labels = ZAOBank_Notifications::get_digest_frequency_labels();
 
-		$message_modes = array();
-		foreach ($message_mode_labels as $value => $label) {
-			$message_modes[] = array(
+		$message_channels = array();
+		foreach ($message_channel_labels as $value => $label) {
+			$message_channels[] = array(
 				'value' => $value,
-				'label' => $label
+				'label' => $label,
+				'coming_soon' => ($value === 'discord'),
+				'exclusive' => ($value === 'in_app')
 			);
 		}
 
@@ -518,7 +520,7 @@ class ZAOBank_REST_User extends ZAOBank_REST_Controller {
 		return $this->success_response(array(
 			'settings' => $settings,
 			'options' => array(
-				'message_notification_modes' => $message_modes,
+				'message_notification_channels' => $message_channels,
 				'jobs_digest_frequencies' => $digest_frequencies
 			)
 		));

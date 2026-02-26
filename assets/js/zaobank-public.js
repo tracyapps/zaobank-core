@@ -88,6 +88,7 @@
 			$(document).on('submit', '#zaobank-job-form', this.handleJobFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-profile-form', this.handleProfileFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-user-settings-form', this.handleUserSettingsSubmit.bind(this));
+			$(document).on('change', '#zaobank-user-settings-form [name="message_notification_channels[]"]', this.handleMessageChannelToggle.bind(this));
 			$(document).on('submit', '[data-component="message-form"]', this.handleMessageSubmit.bind(this));
 			$(document).on('submit', '[data-component="job-intent-form"], .zaobank-job-intent-form', this.handleJobIntentSubmit.bind(this));
 
@@ -1534,7 +1535,15 @@
 				const settings = response.settings || {};
 				$form.attr('data-loading', 'false');
 
-				$form.find('[name="message_notification_mode"]').val(settings.message_notification_mode || 'in_app');
+				$form.find('[name="message_notification_channels[]"]').prop('checked', false);
+				const channels = Array.isArray(settings.message_notification_channels)
+					? settings.message_notification_channels
+					: [settings.message_notification_mode || 'in_app'];
+				channels.forEach(function(channel) {
+					$form.find(`[name="message_notification_channels[]"][value="${channel}"]`).prop('checked', true);
+				});
+				ZAOBank.normalizeMessageChannelSelection($form);
+
 				$form.find('[name="directory_visible"]').prop('checked', settings.directory_visible !== false);
 				$form.find('[name="available_for_requests"]').prop('checked', settings.available_for_requests !== false);
 				$form.find('[name="job_updates_email"]').prop('checked', settings.job_updates_email !== false);
@@ -1561,6 +1570,30 @@
 			});
 		},
 
+		handleMessageChannelToggle: function(e) {
+			const $form = $(e.currentTarget).closest('#zaobank-user-settings-form');
+			if (!$form.length) return;
+			this.normalizeMessageChannelSelection($form, $(e.currentTarget));
+		},
+
+		normalizeMessageChannelSelection: function($form, $trigger) {
+			const $inApp = $form.find('[name="message_notification_channels[]"][value="in_app"]');
+			const $external = $form.find('[name="message_notification_channels[]"]').not('[value="in_app"]');
+
+			if ($trigger && $trigger.length && $trigger.val() === 'in_app' && $trigger.is(':checked')) {
+				$external.prop('checked', false);
+				return;
+			}
+
+			if ($external.filter(':checked').length > 0) {
+				$inApp.prop('checked', false);
+			}
+
+			if ($form.find('[name="message_notification_channels[]"]:checked').length === 0) {
+				$inApp.prop('checked', true);
+			}
+		},
+
 		handleUserSettingsSubmit: function(e) {
 			e.preventDefault();
 			const $form = $(e.currentTarget);
@@ -1568,9 +1601,12 @@
 			const originalLabel = $button.text();
 
 			$button.prop('disabled', true).text('Saving...');
+			this.normalizeMessageChannelSelection($form);
 
 			const data = {
-				message_notification_mode: $form.find('[name="message_notification_mode"]').val() || 'in_app',
+				message_notification_channels: $form.find('[name="message_notification_channels[]"]:checked').map(function() {
+					return $(this).val();
+				}).get(),
 				directory_visible: $form.find('[name="directory_visible"]').is(':checked') ? 1 : 0,
 				available_for_requests: $form.find('[name="available_for_requests"]').is(':checked') ? 1 : 0,
 				job_updates_email: $form.find('[name="job_updates_email"]').is(':checked') ? 1 : 0,

@@ -252,7 +252,7 @@ fetch('/wp-json/zaobank/v1/me/settings', {
     'X-WP-Nonce': wpApiSettings.nonce
   },
   body: JSON.stringify({
-    message_notification_mode: "email_instant",
+    message_notification_channels: ["email", "sms"],
     directory_visible: true,
     available_for_requests: true,
     jobs_digest_enabled: true,
@@ -433,13 +433,12 @@ Private notes are strictly scoped to the author and are never:
 
 ## Notification Features
 
-- New message notification mode supports:
+- New message notification channels support:
   - In-app only
-  - Instant email
-  - Instant SMS (provider integration required)
-  - Instant Discord (provider integration required)
-  - Daily email digest
-  - Weekly email digest
+  - Email
+  - Text (SMS) (provider integration required)
+  - Discord (coming soon / provider integration required)
+  - Multi-select for external channels
 - Open-jobs digest supports:
   - Daily or weekly frequency
   - Per-user item limit

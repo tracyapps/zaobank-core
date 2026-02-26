@@ -20,7 +20,7 @@ if (!in_array($current_view, $valid_views, true)) {
 $is_updates_view = ($current_view === 'updates');
 $is_settings_view = ($current_view === 'settings');
 
-$message_mode_options = class_exists('ZAOBank_Notifications') ? ZAOBank_Notifications::get_message_mode_labels() : array();
+$message_channel_options = class_exists('ZAOBank_Notifications') ? ZAOBank_Notifications::get_message_channel_labels() : array();
 $digest_frequency_options = class_exists('ZAOBank_Notifications') ? ZAOBank_Notifications::get_digest_frequency_labels() : array('daily' => __('Daily', 'zaobank'), 'weekly' => __('Weekly', 'zaobank'));
 
 $regions = get_terms(array(
@@ -64,13 +64,16 @@ if (!is_array($job_types) || is_wp_error($job_types)) {
 		<div class="zaobank-card">
 			<div class="zaobank-card-body">
 				<div class="zaobank-form-group">
-					<label for="zaobank-message-notification-mode" class="zaobank-label"><?php _e('New message notifications', 'zaobank'); ?></label>
-					<select id="zaobank-message-notification-mode" name="message_notification_mode" class="zaobank-select">
-						<?php foreach ($message_mode_options as $value => $label) : ?>
-							<option value="<?php echo esc_attr($value); ?>"><?php echo esc_html($label); ?></option>
+					<label class="zaobank-label"><?php _e('New message notifications', 'zaobank'); ?></label>
+					<div class="zaobank-checkbox-group" data-field="message_notification_channels">
+						<?php foreach ($message_channel_options as $value => $label) : ?>
+							<label class="zaobank-checkbox-label">
+								<input type="checkbox" name="message_notification_channels[]" value="<?php echo esc_attr($value); ?>">
+								<span><?php echo esc_html($label); ?></span>
+							</label>
 						<?php endforeach; ?>
-					</select>
-					<p class="zaobank-form-hint"><?php _e('SMS and Discord delivery require a connected provider integration.', 'zaobank'); ?></p>
+					</div>
+					<p class="zaobank-form-hint"><?php _e('"In app only" is exclusive. Select SMS/Email/Discord to use multiple channels.', 'zaobank'); ?></p>
 				</div>
 
 				<div class="zaobank-form-group">

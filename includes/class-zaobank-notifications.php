@@ -46,32 +46,31 @@ class ZAOBank_Notifications {
 			return;
 		}
 
-		$mode = isset($settings['message_notification_mode']) ? $settings['message_notification_mode'] : 'in_app';
+		$channels = isset($settings['message_notification_channels']) && is_array($settings['message_notification_channels'])
+			? $settings['message_notification_channels']
+			: array('in_app');
 
-		if ($mode === 'email_instant') {
+		$has_external = array_intersect($channels, array('email', 'sms', 'discord'));
+		if (empty($has_external)) {
+			return;
+		}
+
+		if (in_array('email', $channels, true)) {
 			$this->send_new_message_email($to_user_id, $message);
-			return;
 		}
 
-		if ($mode === 'sms_instant') {
-			$sms_result = $this->send_sms_notification($to_user_id, $this->build_sms_message_text($message), array(
+		if (in_array('sms', $channels, true)) {
+			$this->send_sms_notification($to_user_id, $this->build_sms_message_text($message), array(
 				'type' => 'message',
 				'message_id' => $message_id
 			));
-			if (is_wp_error($sms_result)) {
-				$this->send_new_message_email($to_user_id, $message);
-			}
-			return;
 		}
 
-		if ($mode === 'discord_instant') {
-			$discord_result = $this->send_discord_notification($to_user_id, $this->build_discord_message_text($message), array(
+		if (in_array('discord', $channels, true)) {
+			$this->send_discord_notification($to_user_id, $this->build_discord_message_text($message), array(
 				'type' => 'message',
 				'message_id' => $message_id
 			));
-			if (is_wp_error($discord_result)) {
-				$this->send_new_message_email($to_user_id, $message);
-			}
 		}
 	}
 
@@ -139,6 +138,7 @@ class ZAOBank_Notifications {
 	public static function get_default_settings() {
 		return array(
 			'message_notification_mode' => 'in_app',
+			'message_notification_channels' => array('in_app'),
 			'directory_visible' => true,
 			'available_for_requests' => true,
 			'job_updates_email' => true,
@@ -157,10 +157,10 @@ class ZAOBank_Notifications {
 	public static function get_user_settings($user_id) {
 		$defaults = self::get_default_settings();
 
-		$mode = get_user_meta($user_id, 'zaobank_message_notification_mode', true);
-		if (!in_array($mode, self::get_message_mode_values(), true)) {
-			$mode = $defaults['message_notification_mode'];
-		}
+		$legacy_mode = sanitize_key((string) get_user_meta($user_id, 'zaobank_message_notification_mode', true));
+		$raw_channels = get_user_meta($user_id, 'zaobank_message_notification_channels', true);
+		$channels = self::normalize_message_channels($raw_channels, $legacy_mode);
+		$mode = self::channels_to_legacy_mode($channels);
 
 		$directory_visible_raw = get_user_meta($user_id, 'zaobank_directory_visible', true);
 		$directory_visible = ($directory_visible_raw === '' || $directory_visible_raw === null)
@@ -214,6 +214,7 @@ class ZAOBank_Notifications {
 
 		return array(
 			'message_notification_mode' => $mode,
+			'message_notification_channels' => $channels,
 			'directory_visible' => $directory_visible,
 			'available_for_requests' => $available_for_requests,
 			'job_updates_email' => $job_updates_email,
@@ -230,6 +231,13 @@ class ZAOBank_Notifications {
 	 * Persist notification settings for a user.
 	 */
 	public static function update_user_settings($user_id, $params) {
+		if (isset($params['message_notification_channels'])) {
+			$channels = self::normalize_message_channels($params['message_notification_channels']);
+			$mode = self::channels_to_legacy_mode($channels);
+			update_user_meta($user_id, 'zaobank_message_notification_channels', $channels);
+			update_user_meta($user_id, 'zaobank_message_notification_mode', $mode);
+		}
+
 		if (isset($params['message_notification_mode'])) {
 			$mode = sanitize_key((string) $params['message_notification_mode']);
 			if (!in_array($mode, self::get_message_mode_values(), true)) {
@@ -238,7 +246,10 @@ class ZAOBank_Notifications {
 					__('Invalid message notification mode.', 'zaobank')
 				);
 			}
+			$channels = self::legacy_mode_to_channels($mode);
+			$channels = self::normalize_message_channels($channels, $mode);
 			update_user_meta($user_id, 'zaobank_message_notification_mode', $mode);
+			update_user_meta($user_id, 'zaobank_message_notification_channels', $channels);
 		}
 
 		if (isset($params['directory_visible'])) {
@@ -306,6 +317,25 @@ class ZAOBank_Notifications {
 	}
 
 	/**
+	 * List valid values for message notification channels.
+	 */
+	public static function get_message_channel_values() {
+		return array('in_app', 'sms', 'email', 'discord');
+	}
+
+	/**
+	 * Human labels for message notification channels.
+	 */
+	public static function get_message_channel_labels() {
+		return array(
+			'in_app' => __('In app only', 'zaobank'),
+			'sms' => __('Text (SMS)', 'zaobank'),
+			'email' => __('Email', 'zaobank'),
+			'discord' => __('Discord (coming soon)', 'zaobank'),
+		);
+	}
+
+	/**
 	 * Human labels for message notification mode options.
 	 */
 	public static function get_message_mode_labels() {
@@ -318,6 +348,91 @@ class ZAOBank_Notifications {
 			'weekly_digest' => __('Weekly message summary (email)', 'zaobank'),
 			'off' => __('No external notifications', 'zaobank'),
 		);
+	}
+
+	/**
+	 * Normalize channel payload and enforce in-app exclusivity rules.
+	 *
+	 * @param mixed  $channels    Array/string payload from request/meta.
+	 * @param string $legacy_mode Optional legacy mode fallback.
+	 * @return array
+	 */
+	private static function normalize_message_channels($channels, $legacy_mode = '') {
+		if (!is_array($channels)) {
+			if ($channels === null || $channels === '') {
+				$channels = array();
+			} else {
+				$channels = array($channels);
+			}
+		}
+
+		$allowed = self::get_message_channel_values();
+		$normalized = array();
+		foreach ($channels as $channel) {
+			$value = sanitize_key((string) $channel);
+			if (in_array($value, $allowed, true)) {
+				$normalized[] = $value;
+			}
+		}
+
+		$normalized = array_values(array_unique($normalized));
+
+		if (empty($normalized) && $legacy_mode !== '') {
+			$normalized = self::legacy_mode_to_channels($legacy_mode);
+		}
+
+		$external = array_values(array_intersect($normalized, array('sms', 'email', 'discord')));
+		if (!empty($external)) {
+			return $external;
+		}
+
+		return array('in_app');
+	}
+
+	/**
+	 * Convert legacy mode into channel list.
+	 */
+	private static function legacy_mode_to_channels($mode) {
+		$mode = sanitize_key((string) $mode);
+		switch ($mode) {
+			case 'email_instant':
+			case 'daily_digest':
+			case 'weekly_digest':
+				return array('email');
+			case 'sms_instant':
+				return array('sms');
+			case 'discord_instant':
+				return array('discord');
+			case 'off':
+				return array('in_app');
+			case 'in_app':
+			default:
+				return array('in_app');
+		}
+	}
+
+	/**
+	 * Convert channels to best-fit legacy mode.
+	 */
+	private static function channels_to_legacy_mode($channels) {
+		$channels = is_array($channels) ? array_values($channels) : array();
+		$channels = array_values(array_intersect($channels, array('sms', 'email', 'discord')));
+		if (empty($channels)) {
+			return 'in_app';
+		}
+		if (count($channels) === 1) {
+			if ($channels[0] === 'email') {
+				return 'email_instant';
+			}
+			if ($channels[0] === 'sms') {
+				return 'sms_instant';
+			}
+			if ($channels[0] === 'discord') {
+				return 'discord_instant';
+			}
+		}
+		// Legacy mode is single-select; use email as best compatible fallback for mixed channels.
+		return in_array('email', $channels, true) ? 'email_instant' : 'in_app';
 	}
 
 	/**

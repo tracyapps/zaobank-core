@@ -1193,6 +1193,7 @@ Get current user's app settings (authenticated).
 {
     "settings": {
         "message_notification_mode": "email_instant",
+        "message_notification_channels": ["email", "sms"],
         "directory_visible": true,
         "available_for_requests": true,
         "job_updates_email": true,
@@ -1204,9 +1205,11 @@ Get current user's app settings (authenticated).
         "jobs_digest_job_types": [3]
     },
     "options": {
-        "message_notification_modes": [
-            { "value": "in_app", "label": "In-app only" },
-            { "value": "email_instant", "label": "Email instantly" }
+        "message_notification_channels": [
+            { "value": "in_app", "label": "In app only", "exclusive": true, "coming_soon": false },
+            { "value": "sms", "label": "Text (SMS)", "exclusive": false, "coming_soon": false },
+            { "value": "email", "label": "Email", "exclusive": false, "coming_soon": false },
+            { "value": "discord", "label": "Discord (coming soon)", "exclusive": false, "coming_soon": true }
         ],
         "jobs_digest_frequencies": [
             { "value": "daily", "label": "Daily" },
@@ -1222,7 +1225,7 @@ Update current user's app settings (authenticated).
 **Body** (all fields optional):
 ```json
 {
-    "message_notification_mode": "email_instant",
+    "message_notification_channels": ["email", "sms"],
     "directory_visible": true,
     "available_for_requests": true,
     "job_updates_email": true,

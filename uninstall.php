@@ -87,6 +87,7 @@ $user_meta_keys = array(
 	'user_discord_id',
 	'zaobank_saved_profiles',
 	'zaobank_message_notification_mode',
+	'zaobank_message_notification_channels',
 	'zaobank_directory_visible',
 	'zaobank_job_updates_email',
 	'zaobank_appreciations_email',
