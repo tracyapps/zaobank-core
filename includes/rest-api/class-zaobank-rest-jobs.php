@@ -432,6 +432,7 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 	 */
 	public function delete_job($request) {
 		$job_id = (int) $request['id'];
+		$urls = ZAOBank_Shortcodes::get_page_urls();
 
 		// Don't delete if claimed/completed - archive instead
 		$provider_id = get_post_meta($job_id, 'provider_user_id', true);
@@ -442,7 +443,8 @@ class ZAOBank_REST_Jobs extends ZAOBank_REST_Controller {
 		}
 
 		return $this->success_response(array(
-			'message' => __('Job deleted successfully', 'zaobank')
+			'message'      => __('Job deleted successfully', 'zaobank'),
+			'redirect_url' => !empty($urls['my_jobs']) ? $urls['my_jobs'] : home_url('/')
 		));
 	}
 

@@ -14,7 +14,7 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 $current_user_id = get_current_user_id();
 ?>
 
-<div class="zaobank-container zaobank-job-single" data-component="job-single" data-job-id="<?php echo esc_attr($job_id); ?>" data-exchanges-url="<?php echo esc_url($urls['exchanges']); ?>" data-appreciations-url="<?php echo esc_url($urls['appreciations']); ?>">
+<div class="zaobank-container zaobank-job-single" data-component="job-single" data-job-id="<?php echo esc_attr($job_id); ?>" data-exchanges-url="<?php echo esc_url($urls['exchanges']); ?>" data-appreciations-url="<?php echo esc_url($urls['appreciations']); ?>" data-delete-redirect="<?php echo esc_url($urls['my_jobs']); ?>">
 
 	<!-- Back Link -->
 	<a href="<?php echo esc_url($urls['jobs']); ?>" class="zaobank-back-link">
@@ -173,6 +173,9 @@ $current_user_id = get_current_user_id();
 		<a href="<?php echo esc_url($urls['job_form']); ?>?job_id={{id}}" class="zaobank-btn zaobank-btn-secondary zaobank-btn-block">
 			<?php _e('Edit Job', 'zaobank'); ?>
 		</a>
+		<button type="button" class="zaobank-btn zaobank-btn-danger zaobank-btn-sm zaobank-delete-job" data-job-id="{{id}}">
+			<?php _e('Delete Job', 'zaobank'); ?>
+		</button>
 		{{/if}}
 
 		{{#if can_message}}

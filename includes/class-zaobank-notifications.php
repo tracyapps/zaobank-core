@@ -212,9 +212,12 @@ class ZAOBank_Notifications {
 		}
 		$jobs_digest_job_types = array_values(array_unique(array_filter(array_map('intval', $jobs_digest_job_types))));
 
+		$user_phone = self::normalize_phone((string) get_user_meta($user_id, 'user_phone', true));
+
 		return array(
 			'message_notification_mode' => $mode,
 			'message_notification_channels' => $channels,
+			'user_phone' => $user_phone,
 			'directory_visible' => $directory_visible,
 			'available_for_requests' => $available_for_requests,
 			'job_updates_email' => $job_updates_email,
@@ -231,11 +234,15 @@ class ZAOBank_Notifications {
 	 * Persist notification settings for a user.
 	 */
 	public static function update_user_settings($user_id, $params) {
+		$resolved_channels = self::get_user_settings($user_id);
+		$resolved_channels = isset($resolved_channels['message_notification_channels']) && is_array($resolved_channels['message_notification_channels'])
+			? $resolved_channels['message_notification_channels']
+			: array('in_app');
+		$resolved_mode = self::channels_to_legacy_mode($resolved_channels);
+
 		if (isset($params['message_notification_channels'])) {
-			$channels = self::normalize_message_channels($params['message_notification_channels']);
-			$mode = self::channels_to_legacy_mode($channels);
-			update_user_meta($user_id, 'zaobank_message_notification_channels', $channels);
-			update_user_meta($user_id, 'zaobank_message_notification_mode', $mode);
+			$resolved_channels = self::normalize_message_channels($params['message_notification_channels']);
+			$resolved_mode = self::channels_to_legacy_mode($resolved_channels);
 		}
 
 		if (isset($params['message_notification_mode'])) {
@@ -246,10 +253,40 @@ class ZAOBank_Notifications {
 					__('Invalid message notification mode.', 'zaobank')
 				);
 			}
-			$channels = self::legacy_mode_to_channels($mode);
-			$channels = self::normalize_message_channels($channels, $mode);
-			update_user_meta($user_id, 'zaobank_message_notification_mode', $mode);
-			update_user_meta($user_id, 'zaobank_message_notification_channels', $channels);
+			$resolved_channels = self::legacy_mode_to_channels($mode);
+			$resolved_channels = self::normalize_message_channels($resolved_channels, $mode);
+			$resolved_mode = $mode;
+		}
+
+		$has_phone_param = array_key_exists('user_phone', $params);
+		$existing_phone = self::normalize_phone((string) get_user_meta($user_id, 'user_phone', true));
+		$requested_phone = $has_phone_param ? self::normalize_phone((string) $params['user_phone']) : $existing_phone;
+
+		$sms_enabled = in_array('sms', $resolved_channels, true);
+		if ($sms_enabled && !self::is_valid_e164_phone($requested_phone)) {
+			return new WP_Error(
+				'invalid_sms_phone',
+				__('SMS notifications require a valid phone number in E.164 format (example: +14155551234).', 'zaobank')
+			);
+		}
+
+		if (isset($params['message_notification_channels']) || isset($params['message_notification_mode'])) {
+			update_user_meta($user_id, 'zaobank_message_notification_mode', $resolved_mode);
+			update_user_meta($user_id, 'zaobank_message_notification_channels', $resolved_channels);
+		}
+
+		if ($has_phone_param) {
+			if ($requested_phone === '') {
+				delete_user_meta($user_id, 'user_phone');
+			} else {
+				if (!self::is_valid_e164_phone($requested_phone)) {
+					return new WP_Error(
+						'invalid_sms_phone',
+						__('Phone number must use E.164 format (example: +14155551234).', 'zaobank')
+					);
+				}
+				update_user_meta($user_id, 'user_phone', $requested_phone);
+			}
 		}
 
 		if (isset($params['directory_visible'])) {
@@ -467,12 +504,46 @@ class ZAOBank_Notifications {
 	}
 
 	/**
+	 * Normalize a phone number into strict E.164-friendly formatting.
+	 *
+	 * @param string $phone Raw phone input.
+	 * @return string
+	 */
+	private static function normalize_phone($phone) {
+		$phone = trim((string) $phone);
+		if ($phone === '') {
+			return '';
+		}
+
+		$phone = preg_replace('/[\s\-\(\)\.]+/', '', $phone);
+		if (strpos($phone, '00') === 0) {
+			$phone = '+' . substr($phone, 2);
+		}
+
+		return $phone;
+	}
+
+	/**
+	 * Validate an E.164 phone number.
+	 *
+	 * @param string $phone Normalized phone input.
+	 * @return bool
+	 */
+	private static function is_valid_e164_phone($phone) {
+		$phone = trim((string) $phone);
+		return (bool) preg_match('/^\+[1-9]\d{7,14}$/', $phone);
+	}
+
+	/**
 	 * Try to send SMS via external integration.
 	 */
 	private function send_sms_notification($user_id, $message, $context = array()) {
-		$phone = trim((string) get_user_meta($user_id, 'user_phone', true));
+		$phone = self::normalize_phone((string) get_user_meta($user_id, 'user_phone', true));
 		if ($phone === '') {
 			return new WP_Error('sms_missing_phone', __('No phone number is set for SMS notifications.', 'zaobank'));
+		}
+		if (!self::is_valid_e164_phone($phone)) {
+			return new WP_Error('sms_invalid_phone', __('Stored SMS phone number is invalid. Use E.164 format.', 'zaobank'));
 		}
 
 		$payload = array(

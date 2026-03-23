@@ -253,6 +253,7 @@ fetch('/wp-json/zaobank/v1/me/settings', {
   },
   body: JSON.stringify({
     message_notification_channels: ["email", "sms"],
+    user_phone: "+14155551234",
     directory_visible: true,
     available_for_requests: true,
     jobs_digest_enabled: true,
@@ -409,7 +410,7 @@ The plugin registers two ACF field groups:
 - Primary Region (taxonomy)
 - Personality Tags (checkbox)
 - Contact Preferences (checkbox) - Email, Phone, Text, Signal, Discord, ZAO Bank Messages
-- Phone Number (text)
+- Phone Number (text) - Used for SMS notifications and managed on the in-app **Settings** screen (E.164 format, e.g. `+14155551234`)
 - Discord User ID (text) - Links to `https://discord.com/users/{id}` on profile
 
 ## Security Features
@@ -439,6 +440,7 @@ Private notes are strictly scoped to the author and are never:
   - Text (SMS) (provider integration required)
   - Discord (coming soon / provider integration required)
   - Multi-select for external channels
+  - SMS validation with E.164 format (`+14155551234`) before save
 - Open-jobs digest supports:
   - Daily or weekly frequency
   - Per-user item limit
@@ -447,6 +449,7 @@ Private notes are strictly scoped to the author and are never:
   - Directory visibility
   - Availability for direct requests
   - Job update and appreciation email toggles
+- Profile edit and settings forms include an unsaved-changes banner with a jump link to the save button.
 - Integration hooks for external channels:
   - `zaobank_send_sms_notification`
   - `zaobank_send_discord_notification`

@@ -14,7 +14,7 @@ $is_edit = $job_id > 0;
 $urls = ZAOBank_Shortcodes::get_page_urls();
 ?>
 
-<div class="zaobank-container zaobank-job-form-page" data-component="job-form" data-job-id="<?php echo esc_attr($job_id); ?>">
+<div class="zaobank-container zaobank-job-form-page" data-component="job-form" data-job-id="<?php echo esc_attr($job_id); ?>" data-delete-redirect="<?php echo esc_url($urls['my_jobs']); ?>">
 
 
 
@@ -159,6 +159,17 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 				<button type="submit" class="zaobank-btn zaobank-btn-primary zaobank-btn-lg zaobank-btn-block">
 					<?php echo $is_edit ? __('Update Job', 'zaobank') : __('Post Job', 'zaobank'); ?>
 				</button>
+
+				<?php if ($is_edit) : ?>
+					<div class="zaobank-job-form-danger-zone">
+						<p class="zaobank-job-form-danger-hint">
+							<?php _e('Delete this job permanently. This cannot be undone.', 'zaobank'); ?>
+						</p>
+						<button type="button" class="zaobank-btn zaobank-btn-danger zaobank-btn-sm zaobank-delete-job zaobank-job-form-delete" data-job-id="<?php echo esc_attr($job_id); ?>">
+							<?php _e('Delete This Job', 'zaobank'); ?>
+						</button>
+					</div>
+				<?php endif; ?>
 			</div>
 		</div>
 	</form>

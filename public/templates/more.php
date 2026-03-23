@@ -61,6 +61,10 @@ if (!is_array($job_types) || is_wp_error($job_types)) {
 
 	<?php if ($is_settings_view) : ?>
 	<form id="zaobank-user-settings-form" class="zaobank-form zaobank-user-settings-form" data-loading="true">
+		<div class="zaobank-unsaved-banner" data-unsaved-banner hidden>
+			<?php _e('You have unsaved changes.', 'zaobank'); ?>
+			<a href="#zaobank-settings-save"><?php _e('Remember to save', 'zaobank'); ?></a>
+		</div>
 		<div class="zaobank-card">
 			<div class="zaobank-card-body">
 				<div class="zaobank-form-group">
@@ -74,6 +78,18 @@ if (!is_array($job_types) || is_wp_error($job_types)) {
 						<?php endforeach; ?>
 					</div>
 					<p class="zaobank-form-hint"><?php _e('"In app only" is exclusive. Select SMS/Email/Discord to use multiple channels.', 'zaobank'); ?></p>
+				</div>
+
+				<div class="zaobank-form-group" data-role="sms-phone-group" hidden>
+					<label for="zaobank-settings-sms-phone" class="zaobank-label"><?php _e('SMS Phone Number', 'zaobank'); ?></label>
+					<input type="tel"
+					       id="zaobank-settings-sms-phone"
+					       name="user_phone"
+					       class="zaobank-input"
+					       placeholder="<?php esc_attr_e('+14155551234', 'zaobank'); ?>"
+					       inputmode="tel"
+					       autocomplete="tel">
+					<p class="zaobank-form-hint" data-role="sms-phone-hint"><?php _e('Use E.164 format: +[country code][number], example +14155551234.', 'zaobank'); ?></p>
 				</div>
 
 				<div class="zaobank-form-group">
@@ -168,7 +184,7 @@ if (!is_array($job_types) || is_wp_error($job_types)) {
 				</div>
 			</div>
 			<div class="zaobank-card-footer">
-				<button type="submit" class="zaobank-btn zaobank-btn-primary zaobank-btn-block">
+				<button type="submit" id="zaobank-settings-save" class="zaobank-btn zaobank-btn-primary zaobank-btn-block">
 					<?php _e('Save Settings', 'zaobank'); ?>
 				</button>
 			</div>

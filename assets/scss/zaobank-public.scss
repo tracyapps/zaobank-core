@@ -878,6 +878,26 @@ a.zaobank-job-poster {
 	gap: var(--zaobank-space-3);
 }
 
+.zaobank-job-form-danger-zone {
+	margin-top: var(--zaobank-space-7);
+	padding-top: var(--zaobank-space-5);
+	border-top: 1px solid var(--zaobank-gray-200);
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--zaobank-space-3);
+}
+
+.zaobank-job-form-danger-hint {
+	margin: 0;
+	font-size: var(--zaobank-font-size-sm);
+	color: var(--zaobank-gray-600);
+}
+
+.zaobank-job-form-delete {
+	align-self: flex-start;
+}
+
 /* ==========================================================================
    User Cards / Profiles
    ========================================================================== */

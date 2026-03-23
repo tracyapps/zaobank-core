@@ -30,6 +30,10 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 
 	<form id="zaobank-profile-form" class="zaobank-form" data-loading="true">
 		<?php wp_nonce_field('zaobank_profile_form', 'zaobank_nonce'); ?>
+		<div class="zaobank-unsaved-banner" data-unsaved-banner hidden>
+			<?php _e('You have unsaved changes.', 'zaobank'); ?>
+			<a href="#zaobank-profile-save"><?php _e('Remember to save', 'zaobank'); ?></a>
+		</div>
 
 		<div class="zaobank-card">
 			<div class="zaobank-card-body">
@@ -179,19 +183,6 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 					</div>
 				</div>
 
-				<!-- Phone Number -->
-				<div class="zaobank-form-group">
-					<label for="profile-phone" class="zaobank-label">
-						<?php _e('Phone Number', 'zaobank'); ?>
-					</label>
-					<input type="tel"
-					       id="profile-phone"
-					       name="user_phone"
-					       class="zaobank-input"
-					       placeholder="<?php esc_attr_e('Your phone number (optional)', 'zaobank'); ?>">
-					<span class="zaobank-form-hint"><?php _e('Only visible to members you exchange with', 'zaobank'); ?></span>
-				</div>
-
 				<!-- Discord User ID -->
 				<div class="zaobank-form-group">
 					<label for="profile-discord" class="zaobank-label">
@@ -208,7 +199,7 @@ $urls = ZAOBank_Shortcodes::get_page_urls();
 			</div>
 
 			<div class="zaobank-card-footer">
-				<button type="submit" class="zaobank-btn zaobank-btn-primary zaobank-btn-lg zaobank-btn-block">
+				<button type="submit" id="zaobank-profile-save" class="zaobank-btn zaobank-btn-primary zaobank-btn-lg zaobank-btn-block">
 					<?php _e('Save Changes', 'zaobank'); ?>
 				</button>
 			</div>

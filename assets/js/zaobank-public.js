@@ -89,6 +89,7 @@
 			$(document).on('submit', '#zaobank-profile-form', this.handleProfileFormSubmit.bind(this));
 			$(document).on('submit', '#zaobank-user-settings-form', this.handleUserSettingsSubmit.bind(this));
 			$(document).on('change', '#zaobank-user-settings-form [name="message_notification_channels[]"]', this.handleMessageChannelToggle.bind(this));
+			$(document).on('input blur', '#zaobank-user-settings-form [name="user_phone"]', this.handleSettingsPhoneInput.bind(this));
 			$(document).on('submit', '[data-component="message-form"]', this.handleMessageSubmit.bind(this));
 			$(document).on('submit', '[data-component="job-intent-form"], .zaobank-job-intent-form', this.handleJobIntentSubmit.bind(this));
 
@@ -1121,6 +1122,7 @@
 			e.preventDefault();
 			const $button = $(e.currentTarget);
 			const jobId = $button.data('job-id');
+			const originalLabel = $.trim($button.text()) || 'Delete Job';
 
 			if (!confirm('Are you sure you want to delete this job? This cannot be undone.')) {
 				return;
@@ -1130,11 +1132,19 @@
 
 			this.apiCall('jobs/' + jobId, 'DELETE', {}, function(response) {
 				ZAOBank.showToast('Job deleted.', 'success');
+				const redirectUrl = (response && response.redirect_url)
+					? response.redirect_url
+					: ($button.closest('[data-delete-redirect]').data('delete-redirect') || '');
 				setTimeout(function() {
-					window.history.back();
-				}, 1000);
+					if (redirectUrl) {
+						window.location.href = redirectUrl;
+						return;
+					}
+
+					window.location.href = window.location.origin;
+				}, 700);
 			}, function() {
-				$button.prop('disabled', false).text('Delete Job');
+				$button.prop('disabled', false).text(originalLabel);
 			});
 		},
 
@@ -1376,6 +1386,7 @@
 		// =========================================================================
 
 		initProfileEdit: function($container) {
+			this.initUnsavedTracking($('#zaobank-profile-form'));
 			this.loadProfileForEdit();
 			this.initAvatarUpload();
 		},
@@ -1404,6 +1415,7 @@
 					$('#profile-avatar').attr('src', url);
 					$('#profile-image-id').val(attachment.id);
 					$('#zaobank-remove-avatar').show();
+					ZAOBank.refreshUnsavedState($('#zaobank-profile-form'));
 				});
 
 				mediaFrame.open();
@@ -1414,6 +1426,7 @@
 				$('#profile-image-id').val('0');
 				$('#profile-avatar').attr('src', ZAOBank.getDefaultAvatar(96));
 				$(this).hide();
+				ZAOBank.refreshUnsavedState($('#zaobank-profile-form'));
 			});
 		},
 
@@ -1429,7 +1442,6 @@
 				$form.find('[name="user_bio"]').val(profile.bio || '');
 				$form.find('[name="user_skills"]').val(profile.skills || '');
 				$form.find('[name="user_availability"]').val(profile.availability || '');
-				$form.find('[name="user_phone"]').val(profile.phone || '');
 				$form.find('[name="user_discord_id"]').val(profile.discord_id || '');
 
 				// Update avatar preview
@@ -1465,6 +1477,8 @@
 						$form.find(`[name="user_contact_preferences[]"][value="${pref}"]`).prop('checked', true);
 					});
 				}
+
+				ZAOBank.captureInitialFormState($form);
 			}, function() {
 				$form.attr('data-loading', 'false');
 			});
@@ -1488,7 +1502,6 @@
 				user_bio: $form.find('[name="user_bio"]').val(),
 				user_skills: $form.find('[name="user_skills"]').val(),
 				user_availability: $form.find('[name="user_availability"]').val(),
-				user_phone: $form.find('[name="user_phone"]').val(),
 				user_discord_id: $form.find('[name="user_discord_id"]').val(),
 				user_primary_region: $form.find('[name="user_primary_region"]').val(),
 				user_profile_tags: $form.find('[name="user_profile_tags[]"]:checked').map(function() {
@@ -1514,6 +1527,7 @@
 				if (profile && profile.avatar_url) {
 					$('.zaobank-header-avatar img').attr('src', profile.avatar_url);
 				}
+				ZAOBank.captureInitialFormState($form);
 			}, function() {
 				$button.prop('disabled', false).text('Save Changes');
 			});
@@ -1524,6 +1538,7 @@
 		// =========================================================================
 
 		initUserSettings: function() {
+			this.initUnsavedTracking($('#zaobank-user-settings-form'));
 			this.loadUserSettings();
 		},
 
@@ -1543,6 +1558,9 @@
 					$form.find(`[name="message_notification_channels[]"][value="${channel}"]`).prop('checked', true);
 				});
 				ZAOBank.normalizeMessageChannelSelection($form);
+				ZAOBank.toggleSmsPhoneField($form);
+				$form.find('[name="user_phone"]').val(settings.user_phone || '');
+				ZAOBank.validateSmsPhoneField($form, false);
 
 				$form.find('[name="directory_visible"]').prop('checked', settings.directory_visible !== false);
 				$form.find('[name="available_for_requests"]').prop('checked', settings.available_for_requests !== false);
@@ -1565,6 +1583,7 @@
 						$form.find(`[name="jobs_digest_job_types[]"][value="${parseInt(typeId, 10)}"]`).prop('checked', true);
 					});
 				}
+				ZAOBank.captureInitialFormState($form);
 			}, function() {
 				$form.attr('data-loading', 'false');
 			});
@@ -1574,6 +1593,16 @@
 			const $form = $(e.currentTarget).closest('#zaobank-user-settings-form');
 			if (!$form.length) return;
 			this.normalizeMessageChannelSelection($form, $(e.currentTarget));
+			this.toggleSmsPhoneField($form);
+			this.validateSmsPhoneField($form, false);
+			this.refreshUnsavedState($form);
+		},
+
+		handleSettingsPhoneInput: function(e) {
+			const $form = $(e.currentTarget).closest('#zaobank-user-settings-form');
+			if (!$form.length) return;
+			this.validateSmsPhoneField($form, false);
+			this.refreshUnsavedState($form);
 		},
 
 		normalizeMessageChannelSelection: function($form, $trigger) {
@@ -1594,6 +1623,49 @@
 			}
 		},
 
+		toggleSmsPhoneField: function($form) {
+			const showSms = $form.find('[name="message_notification_channels[]"][value="sms"]').is(':checked');
+			const $group = $form.find('[data-role="sms-phone-group"]');
+			if (!$group.length) return;
+			if (showSms) {
+				$group.removeAttr('hidden');
+			} else {
+				$group.attr('hidden', true);
+				const $input = $group.find('[name="user_phone"]');
+				$input.removeClass('is-invalid').removeAttr('aria-invalid');
+				$group.find('[data-role="sms-phone-hint"]').removeClass('is-error')
+					.text('Use E.164 format: +[country code][number], example +14155551234.');
+			}
+		},
+
+		validateSmsPhoneField: function($form, showToast = false) {
+			const smsEnabled = $form.find('[name="message_notification_channels[]"][value="sms"]').is(':checked');
+			const $input = $form.find('[name="user_phone"]');
+			const $hint = $form.find('[data-role="sms-phone-hint"]');
+			if (!$input.length || !$hint.length) return true;
+
+			const rawValue = String($input.val() || '').trim();
+			if (!smsEnabled) {
+				$input.removeClass('is-invalid').removeAttr('aria-invalid');
+				$hint.removeClass('is-error').text('Use E.164 format: +[country code][number], example +14155551234.');
+				return true;
+			}
+
+			const e164Pattern = /^\+[1-9]\d{7,14}$/;
+			if (!e164Pattern.test(rawValue)) {
+				$input.addClass('is-invalid').attr('aria-invalid', 'true');
+				$hint.addClass('is-error').text('SMS requires a valid E.164 number, like +14155551234.');
+				if (showToast) {
+					ZAOBank.showToast('Please add a valid SMS number in E.164 format.', 'error');
+				}
+				return false;
+			}
+
+			$input.removeClass('is-invalid').removeAttr('aria-invalid');
+			$hint.removeClass('is-error').text('Valid format.');
+			return true;
+		},
+
 		handleUserSettingsSubmit: function(e) {
 			e.preventDefault();
 			const $form = $(e.currentTarget);
@@ -1602,11 +1674,18 @@
 
 			$button.prop('disabled', true).text('Saving...');
 			this.normalizeMessageChannelSelection($form);
+			if (!this.validateSmsPhoneField($form, true)) {
+				$button.prop('disabled', false).text(originalLabel);
+				return;
+			}
 
 			const data = {
 				message_notification_channels: $form.find('[name="message_notification_channels[]"]:checked').map(function() {
 					return $(this).val();
 				}).get(),
+				user_phone: $form.find('[name="message_notification_channels[]"][value="sms"]').is(':checked')
+					? String($form.find('[name="user_phone"]').val() || '').trim()
+					: '',
 				directory_visible: $form.find('[name="directory_visible"]').is(':checked') ? 1 : 0,
 				available_for_requests: $form.find('[name="available_for_requests"]').is(':checked') ? 1 : 0,
 				job_updates_email: $form.find('[name="job_updates_email"]').is(':checked') ? 1 : 0,
@@ -1629,9 +1708,108 @@
 			this.apiCall('me/settings', 'PUT', data, function() {
 				$button.prop('disabled', false).text(originalLabel);
 				ZAOBank.showToast('Settings updated.', 'success');
+				ZAOBank.captureInitialFormState($form);
 			}, function() {
 				$button.prop('disabled', false).text(originalLabel);
 			});
+		},
+
+		initUnsavedTracking: function($form) {
+			if (!$form || !$form.length) return;
+
+			$form.off('.zaobankUnsaved');
+			$form.data('zaobankUnsavedReady', false);
+			this.toggleUnsavedBanner($form, false);
+
+			$form.on('input.zaobankUnsaved change.zaobankUnsaved', ':input[name]', function(event) {
+				const $target = $(event.target);
+				if ($target.is('[type="submit"], [type="button"], [type="reset"], [type="file"]')) {
+					return;
+				}
+				ZAOBank.refreshUnsavedState($form);
+			});
+		},
+
+		captureInitialFormState: function($form) {
+			if (!$form || !$form.length) return;
+			$form.data('zaobankInitialState', this.captureFormState($form));
+			$form.data('zaobankUnsavedReady', true);
+			this.toggleUnsavedBanner($form, false);
+		},
+
+		captureFormState: function($form) {
+			const state = [];
+			$form.find(':input[name]').each(function() {
+				const $input = $(this);
+				if ($input.prop('disabled')) return;
+
+				const tagName = String($input.prop('tagName') || '').toLowerCase();
+				const inputType = String($input.attr('type') || '').toLowerCase();
+				if (inputType === 'submit' || inputType === 'button' || inputType === 'reset' || inputType === 'file') {
+					return;
+				}
+
+				const name = String($input.attr('name') || '');
+				if (name === '') return;
+
+				if (inputType === 'checkbox' || inputType === 'radio') {
+					state.push({
+						name: name,
+						type: inputType,
+						value: String($input.val() || ''),
+						checked: $input.is(':checked') ? 1 : 0
+					});
+					return;
+				}
+
+				if (tagName === 'select' && $input.prop('multiple')) {
+					const values = $input.val();
+					const normalized = Array.isArray(values)
+						? values.map(function(value) { return String(value); }).sort()
+						: [];
+					state.push({
+						name: name,
+						type: 'select-multiple',
+						value: normalized
+					});
+					return;
+				}
+
+				state.push({
+					name: name,
+					type: inputType || tagName,
+					value: String($input.val() || '')
+				});
+			});
+
+			state.sort(function(a, b) {
+				const left = `${a.name}|${a.type}|${a.value}|${a.checked || 0}`;
+				const right = `${b.name}|${b.type}|${b.value}|${b.checked || 0}`;
+				if (left < right) return -1;
+				if (left > right) return 1;
+				return 0;
+			});
+
+			return JSON.stringify(state);
+		},
+
+		refreshUnsavedState: function($form) {
+			if (!$form || !$form.length) return;
+			if (!$form.data('zaobankUnsavedReady')) return;
+
+			const initialState = String($form.data('zaobankInitialState') || '');
+			const currentState = this.captureFormState($form);
+			this.toggleUnsavedBanner($form, initialState !== currentState);
+		},
+
+		toggleUnsavedBanner: function($form, isDirty) {
+			const $banner = $form.find('[data-unsaved-banner]').first();
+			if (!$banner.length) return;
+			if (isDirty) {
+				$banner.removeAttr('hidden');
+			} else {
+				$banner.attr('hidden', true);
+			}
 		},
 
 		// =========================================================================

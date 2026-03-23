@@ -1175,7 +1175,6 @@ Update current user's profile (authenticated).
     "user_bio": "string",
     "user_skills": "string",
     "user_availability": "string",
-    "user_phone": "string",
     "user_discord_id": "string",
     "user_primary_region": 5,
     "user_profile_image": 456,
@@ -1194,6 +1193,7 @@ Get current user's app settings (authenticated).
     "settings": {
         "message_notification_mode": "email_instant",
         "message_notification_channels": ["email", "sms"],
+        "user_phone": "+14155551234",
         "directory_visible": true,
         "available_for_requests": true,
         "job_updates_email": true,
@@ -1226,6 +1226,7 @@ Update current user's app settings (authenticated).
 ```json
 {
     "message_notification_channels": ["email", "sms"],
+    "user_phone": "+14155551234",
     "directory_visible": true,
     "available_for_requests": true,
     "job_updates_email": true,
@@ -1240,6 +1241,9 @@ Update current user's app settings (authenticated).
 
 **Notes**:
 - `user_available_for_requests` is still accepted by `PUT /me/profile` for backwards compatibility, but new UI writes this via `PUT /me/settings`.
+- `user_phone` is managed on `PUT /me/settings` for SMS notifications. Format is validated as E.164 (`+14155551234`).
+- Message channels support multi-select for external channels (`sms`, `email`, `discord`). `in_app` is exclusive.
+- Profile Edit and Settings screens show an unsaved-changes banner until the form is saved.
 
 #### GET /users/search
 Search verified users for messaging (authenticated).
@@ -1737,6 +1741,7 @@ The plugin registers two ACF field groups programmatically:
 **User Profile Fields** include:
 - `user_profile_image` (image, return format: ID) — Custom profile photo, replaces Gravatar when set. Stored as user meta. Minimum 96x96px, accepts jpg/jpeg/png/gif/webp.
 - `user_pronouns`, `user_bio`, `user_skills`, `user_availability`, `user_phone`, `user_discord_id`, `user_primary_region`, `user_profile_tags`, `user_contact_preferences`
+- `user_phone` is edited from the in-app Settings form (not the profile edit form) and validated in the notification settings API.
 
 The profile image is selected via the WordPress media modal (`wp.media`) on the profile edit page. The attachment ID is stored as user meta and resolved to a URL via `wp_get_attachment_image_url()`. Use `ZAOBank_Helpers::get_user_avatar_url($user_id)` to get the resolved URL with Gravatar fallback.
 
